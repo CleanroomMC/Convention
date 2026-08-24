@@ -1,0 +1,115 @@
+# git-cliff configuration. Managed by CleanroomMC/Convention. Do not edit locally.
+#
+# The shared release workflow runs this twice: once with --latest for the GitHub
+# Release body, once over the full history for the CHANGELOG.md attached to it.
+
+# GitHub usernames and pull-request numbers come from the API.
+# The workflow supplies GITHUB_TOKEN and GITHUB_REPO.
+#
+# Set CLIFF_INCLUDE_DATE=1 when generating CHANGELOG.md
+# So each version heading includes the release date.
+# The GitHub Release body leaves it unset as the title is already the tag.
+
+[changelog]
+header = """
+# Changelog
+"""
+body = """
+{%- macro remote_url() -%}
+https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}
+{%- endmacro -%}
+{%- macro print_commit(commit) -%}
+- {% if commit.scope %}**{{ commit.scope }}**: {% endif -%}
+{{ commit.message | split(pat="\n") | first | trim -}}
+{%- if commit.remote.username %} - *by @{{ commit.remote.username }}{% if commit.remote.pr_number %} in #{{ commit.remote.pr_number }}{% endif %}*\
+{%- elif commit.author.name %} - *by {{ commit.author.name }}{% if commit.remote.pr_number %} in #{{ commit.remote.pr_number }}{% endif %}*\
+{%- endif -%}
+{%- if commit.breaking and commit.breaking_description and commit.breaking_description != commit.message %}
+{{ "  " }}{{ commit.breaking_description | split(pat="\n") | first | trim }}
+{%- endif %}
+{%- endmacro -%}
+{%- set include_date = get_env(name="CLIFF_INCLUDE_DATE", default="") -%}
+{%- if include_date -%}
+## {% if version %}{{ version }} - {{ timestamp | date(format="%Y-%m-%d") }}{% else %}Unreleased{% endif %}
+{%- else -%}
+# {% if version %}{{ version }}{% else %}Unreleased{% endif %}
+{%- endif %}
+{% if version and previous.version -%}
+{% if version | split(pat=".") | first != previous.version | split(pat=".") | first %}
+> [!IMPORTANT]
+> This is a new major version ({{ previous.version | split(pat=".") | first }}.x → {{ version | split(pat=".") | first }}.x).
+{% endif -%}
+{% endif -%}
+{% if commits | filter(attribute="breaking", value=true) | length != 0 %}
+> [!WARNING]
+> This version has breaking changes! More details below.
+{% endif -%}
+{% if commits | filter(attribute="breaking", value=true) | length != 0 %}
+## Breaking Changes
+
+{% for commit in commits | filter(attribute="breaking", value=true) -%}
+{{ self::print_commit(commit=commit) }}
+{% endfor -%}
+{% endif -%}
+{% for group, commits in commits | group_by(attribute="group") -%}
+{% set_global shown = false -%}
+{% for commit in commits -%}
+{% if commit.breaking %}{% continue %}{% endif -%}
+{% if not shown %}
+## {{ group | striptags | trim }}
+
+{% set_global shown = true -%}
+{% endif -%}
+{{ self::print_commit(commit=commit) }}
+{% endfor -%}
+{% endfor -%}
+{% if github.contributors | filter(attribute="is_first_time", value=true) | length != 0 %}
+## First-time Contributors
+
+{% for contributor in github.contributors | filter(attribute="is_first_time", value=true) -%}
+- **@{{ contributor.username }} made their first contribution!**
+{% endfor %}
+{% endif -%}
+{% if version and previous.version and remote.github.owner %}
+**Full Changelog**: {{ self::remote_url() }}/compare/{{ previous.version }}...{{ version }}
+{% endif %}
+"""
+footer = ""
+# trim would strip the blank line between releases in CHANGELOG.md.
+trim = false
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+split_commits = false
+protect_breaking_commits = true
+filter_commits = false
+recurse_submodules = true
+use_branch_tags = true
+topo_order = true
+sort_commits = "newest"
+
+# GitHub squash-merge appends "(#123)" to the subject. The body already prints
+# the pull-request number from the GitHub API, so strip the duplicate.
+commit_preprocessors = [
+    { pattern = '\s*\((\w+\s)?#([0-9]+)\)', replace = "" },
+]
+
+# HTML comments force group order; Tera's group_by is alphabetical otherwise.
+# The template strips them with striptags.
+commit_parsers = [
+    { message = "^feat", group = "<!-- 0 -->Feature" },
+    { message = "^fix", group = "<!-- 1 -->Bug Fix" },
+    { message = "^perf", group = "<!-- 2 -->Performance" },
+    { message = "^refactor", group = "<!-- 3 -->Refactor" },
+    { message = "^doc", group = "<!-- 4 -->Documentation" },
+    { message = "^test", group = "<!-- 5 -->Testing" },
+    { message = "^build", group = "<!-- 6 -->Build and Dependencies" },
+    { message = "^chore\\(deps\\)", group = "<!-- 6 -->Build and Dependencies" },
+    { message = "^ci", group = "<!-- 7 -->CI" },
+    { message = "^chore", skip = true },
+    { message = "^style", skip = true },
+    { message = "^Merge", skip = true },
+    { message = "^revert", skip = true },
+    { message = ".*", group = "<!-- 8 -->Other" }
+]
