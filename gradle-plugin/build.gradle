@@ -1,0 +1,83 @@
+plugins {
+    id 'com.cleanroommc.versioning' version '2.0.0'
+    id 'java-gradle-plugin'
+    id 'maven-publish'
+    id 'com.gradle.plugin-publish' version '2.1.1'
+    id 'signing'
+}
+
+group = 'com.cleanroommc'
+base.archivesName = 'conventions'
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+    withSourcesJar()
+    withJavadocJar()
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+gradlePlugin {
+    website = 'https://github.com/CleanroomMC/Conventions'
+    vcsUrl = 'https://github.com/CleanroomMC/Conventions.git'
+    plugins {
+        conventions {
+            id = "${group}.conventions"
+            implementationClass = "${group}.conventions.ConventionsPlugin"
+            displayName = 'Token Envoy'
+            description = 'Sets project conventions for CleanroomMC projects.'
+            tags.set(['minecraft', 'conventions', '1.12', 'cleanroom'])
+            compatibility {
+                features {
+                    configurationCache = true
+                }
+            }
+        }
+    }
+}
+
+publishing {
+    publications {
+        pluginMaven(MavenPublication) {
+            artifactId = 'conventions'
+        }
+    }
+    repositories {
+        maven {
+            name = 'CleanroomMaven'
+            url = 'https://maven.cleanroommc.com'
+            credentials(PasswordCredentials)
+            authentication {
+                basic(BasicAuthentication)
+            }
+        }
+    }
+}
+
+def signingKey = providers.gradleProperty('signingKey')
+def signingPassword = providers.gradleProperty('signingPassword')
+
+signing {
+    required = {
+        gradle.taskGraph.allTasks.any { it.name == 'publishPlugins' }
+    }
+    if (signingKey.present && signingPassword.present) {
+        useInMemoryPgpKeys(signingKey.get(), signingPassword.get())
+    }
+}
