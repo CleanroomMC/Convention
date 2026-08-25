@@ -40,7 +40,7 @@ gradlePlugin {
         conventions {
             id = "${group}.conventions"
             implementationClass = "${group}.conventions.ConventionsPlugin"
-            displayName = 'Token Envoy'
+            displayName = 'Conventions'
             description = 'Sets project conventions for CleanroomMC projects.'
             tags.set(['minecraft', 'conventions', '1.12', 'cleanroom'])
             compatibility {
