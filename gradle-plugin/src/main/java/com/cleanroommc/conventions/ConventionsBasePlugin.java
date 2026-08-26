@@ -1,9 +1,18 @@
 package com.cleanroommc.conventions;
 
+import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.plugins.ExtensionContainer;
+import org.gradle.api.plugins.JavaPlugin;
+import org.gradle.api.plugins.JavaPluginExtension;
+import org.gradle.api.plugins.PluginManager;
+import org.gradle.api.tasks.TaskContainer;
 import org.gradle.api.tasks.bundling.AbstractArchiveTask;
 import org.gradle.api.tasks.compile.JavaCompile;
+import org.gradle.api.tasks.javadoc.Javadoc;
+import org.gradle.api.tasks.testing.Test;
+import org.gradle.jvm.toolchain.JavaLanguageVersion;
 
 /**
  * Base Conventions plugin.
@@ -14,12 +23,26 @@ public class ConventionsBasePlugin implements Plugin<Project> {
 
     @Override
     public void apply(Project project) {
+        PluginManager plugins = project.getPluginManager();
+        ExtensionContainer extensions = project.getExtensions();
+        TaskContainer tasks = project.getTasks();
+
         // Apply Cleanroom Versioning
-        project.getPluginManager().apply("com.cleanroommc.versioning");
-        // UTF-8 Encoding on all JavaCompile tasks
-        project.getTasks().withType(JavaCompile.class).configureEach(task -> task.getOptions().setEncoding("UTF-8"));
+        plugins.apply("com.cleanroommc.versioning");
+
+        // UTF-8 Encoding on all JavaCompile, Javadoc, Test tasks
+        tasks.withType(JavaCompile.class).configureEach(task -> task.getOptions().setEncoding("UTF-8"));
+        tasks.withType(Javadoc.class).configureEach(task -> task.getOptions().setEncoding("UTF-8"));
+        tasks.withType(Test.class).configureEach(task -> task.setDefaultCharacterEncoding("UTF-8"));
+
+        // Gets "conventions.javaMajor" and sets Java toolchain to it
+        project.getPlugins().withType(JavaPlugin.class, _ -> extensions.getByType(JavaPluginExtension.class)
+            .getToolchain()
+            .getLanguageVersion()
+            .set(JavaLanguageVersion.of(Property.JAVA_VERSION.stringValue(project))));
+
         // Verifiable rebuilds
-        project.getTasks().withType(AbstractArchiveTask.class).configureEach(task -> {
+        tasks.withType(AbstractArchiveTask.class).configureEach(task -> {
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
         });
