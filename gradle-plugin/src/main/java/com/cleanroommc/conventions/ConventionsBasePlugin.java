@@ -11,6 +11,7 @@ import org.gradle.api.tasks.bundling.AbstractArchiveTask;
 import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.api.tasks.javadoc.Javadoc;
 import org.gradle.api.tasks.testing.Test;
+import org.gradle.external.javadoc.CoreJavadocOptions;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
 
 /**
@@ -33,6 +34,12 @@ public class ConventionsBasePlugin implements Plugin<Project> {
         tasks.withType(JavaCompile.class).configureEach(task -> task.getOptions().setEncoding("UTF-8"));
         tasks.withType(Javadoc.class).configureEach(task -> task.getOptions().setEncoding("UTF-8"));
         tasks.withType(Test.class).configureEach(task -> task.setDefaultCharacterEncoding("UTF-8"));
+
+        // Muted Javadocs 'missing' group, '-quiet' is filler as the option takes no argument
+        tasks.withType(Javadoc.class).configureEach(task -> {
+            CoreJavadocOptions options = (CoreJavadocOptions) task.getOptions();
+            options.addStringOption("Xdoclint:all,-missing", "-quiet");
+        });
 
         // Gets "conventions.javaMajor" and sets Java toolchain to it
         project.getPlugins().withType(JavaPlugin.class, _ -> extensions.getByType(JavaPluginExtension.class)
