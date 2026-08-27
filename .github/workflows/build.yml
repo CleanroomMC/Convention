@@ -1,0 +1,83 @@
+name: Build
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory that contains the Gradle wrapper. Omit to use the repository root, or a nested wrapper if the root has none.
+        type: string
+        default: '.'
+      artifact-path:
+        description: Paths to upload after a successful build.
+        type: string
+        default: '**/build/libs'
+      if-no-files-found:
+        description: Behaviour when no artifact is matched. One of warn, error or ignore.
+        type: string
+        default: warn
+
+permissions:
+  contents: read
+
+# Uses the caller's workflow name and ref, so each calling repository gets its own group.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    # Draft PRs wait until they are marked ready for review.
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Locate Gradle wrapper
+        id: gradle
+        env:
+          WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        run: |
+          set -euo pipefail
+          if [ -f "${WORKING_DIRECTORY}/gradlew" ]; then
+            echo "dir=${WORKING_DIRECTORY}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mapfile -t wrappers < <(find . -maxdepth 2 -type f -name gradlew ! -path './.git/*' | sort)
+          if [ "${#wrappers[@]}" -eq 1 ]; then
+            echo "dir=$(dirname "${wrappers[0]}")" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::error::Gradle wrapper not found in '${WORKING_DIRECTORY}', and no unique wrapper within two directory levels."
+          exit 1
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          validate-wrappers: true
+          cache-read-only: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
+          build-scan-publish: true
+          build-scan-terms-of-use-url: https://gradle.com/terms-of-service
+          build-scan-terms-of-use-agree: 'yes'
+
+      - name: Build
+        working-directory: ${{ steps.gradle.outputs.dir }}
+        run: ./gradlew build -Pversioning.run=${{ github.run_number }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: libs
+          path: ${{ inputs.artifact-path }}
+          if-no-files-found: ${{ inputs.if-no-files-found }}
