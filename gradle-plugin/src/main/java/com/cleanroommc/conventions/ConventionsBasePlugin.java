@@ -1,6 +1,5 @@
 package com.cleanroommc.conventions;
 
-import org.gradle.api.InvalidUserDataException;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.plugins.ExtensionContainer;
@@ -39,7 +38,7 @@ public class ConventionsBasePlugin implements Plugin<Project> {
         project.getPlugins().withType(JavaPlugin.class, _ -> extensions.getByType(JavaPluginExtension.class)
             .getToolchain()
             .getLanguageVersion()
-            .set(JavaLanguageVersion.of(Property.JAVA_VERSION.stringValue(project))));
+            .set(JavaLanguageVersion.of(ConventionsProperty.JAVA_VERSION.stringValue(project))));
 
         // Verifiable rebuilds
         tasks.withType(AbstractArchiveTask.class).configureEach(task -> {

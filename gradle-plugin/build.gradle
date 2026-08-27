@@ -17,9 +17,12 @@ java {
 
 repositories {
     mavenCentral()
+    gradlePluginPortal()
 }
 
 dependencies {
+    implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${formatj}"
+
     testImplementation platform('org.junit:junit-bom:5.11.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -31,6 +34,13 @@ tasks.named('test', Test) {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
+}
+
+tasks.named('processResources', ProcessResources) {
+    from(layout.projectDirectory.dir('..')) {
+        include 'checkstyle.xml', 'formatj.toml'
+        into 'resources'
+    }
 }
 
 gradlePlugin {

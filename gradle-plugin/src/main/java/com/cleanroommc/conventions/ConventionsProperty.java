@@ -3,13 +3,13 @@ package com.cleanroommc.conventions;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 
-public enum Property {
+public enum ConventionsProperty {
 
     JAVA_VERSION("conventions.javaMajor");
 
     private final String key;
 
-    Property(String key) {
+    ConventionsProperty(String key) {
         this.key = key;
     }
 

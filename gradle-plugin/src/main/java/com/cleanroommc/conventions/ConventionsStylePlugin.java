@@ -1,0 +1,35 @@
+package com.cleanroommc.conventions;
+
+import org.gradle.api.Plugin;
+import org.gradle.api.Project;
+import org.gradle.api.plugins.PluginManager;
+import org.gradle.api.plugins.quality.CheckstyleExtension;
+import org.gradle.api.plugins.quality.CheckstylePlugin;
+import zone.rong.formatj.gradle.FormatJExtension;
+import zone.rong.formatj.gradle.FormatJPlugin;
+
+/**
+ * Style Conventions plugin.
+ */
+public class ConventionsStylePlugin implements Plugin<Project> {
+
+    private static final String CHECKSTYLE_VERSION = "14.0.0";
+
+    @Override
+    public void apply(Project project) {
+        PluginManager plugins = project.getPluginManager();
+
+        // Apply FormatJ and its configuration
+        plugins.apply(FormatJPlugin.class);
+        project.getExtensions().getByType(FormatJExtension.class)
+            .getStyleFile()
+            .set(ConventionsFile.FORMAT_J.unpack(project));
+
+        // Apply Checkstyle and its configuration
+        plugins.apply(CheckstylePlugin.class);
+        CheckstyleExtension checkstyle = project.getExtensions().getByType(CheckstyleExtension.class);
+        checkstyle.setToolVersion(CHECKSTYLE_VERSION);
+        checkstyle.setConfigFile(ConventionsFile.CHECKSTYLE.unpack(project));
+    }
+
+}
