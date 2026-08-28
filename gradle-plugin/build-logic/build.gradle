@@ -1,0 +1,45 @@
+plugins {
+    id 'java-gradle-plugin'
+}
+
+// Bootstrap build so the conventions plugin can be applied to its own build.
+// It compiles the exact same sources as the published plugin.
+
+def pluginProperties = new Properties()
+file('../gradle.properties').withInputStream { pluginProperties.load(it) }
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(25)
+}
+
+repositories {
+    mavenCentral()
+    gradlePluginPortal()
+}
+
+dependencies {
+    implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${pluginProperties['formatj']}"
+}
+
+sourceSets.main.java.srcDirs = ['../src/main/java']
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+tasks.named('processResources', ProcessResources) {
+    from(layout.projectDirectory.dir('../..')) {
+        include 'checkstyle.xml', 'formatj.toml'
+        into 'resources'
+    }
+}
+
+gradlePlugin {
+    plugins {
+        conventions {
+            // Distinct id from the published one, so plugin resolution is never ambiguous.
+            id = 'com.cleanroommc.conventions.bootstrap'
+            implementationClass = 'com.cleanroommc.conventions.ConventionsPlugin'
+        }
+    }
+}

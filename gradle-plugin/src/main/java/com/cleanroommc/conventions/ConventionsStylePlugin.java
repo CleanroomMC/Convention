@@ -21,9 +21,7 @@ public class ConventionsStylePlugin implements Plugin<Project> {
 
         // Apply FormatJ and its configuration
         plugins.apply(FormatJPlugin.class);
-        project.getExtensions().getByType(FormatJExtension.class)
-            .getStyleFile()
-            .set(ConventionsFile.FORMAT_J.unpack(project));
+        project.getExtensions().getByType(FormatJExtension.class).getStyleFile().set(ConventionsFile.FORMAT_J.unpack(project));
 
         // Apply Checkstyle and its configuration
         plugins.apply(CheckstylePlugin.class);

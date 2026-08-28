@@ -42,10 +42,14 @@ public class ConventionsBasePlugin implements Plugin<Project> {
         });
 
         // Gets "conventions.javaMajor" and sets Java toolchain to it
-        project.getPlugins().withType(JavaPlugin.class, _ -> extensions.getByType(JavaPluginExtension.class)
-            .getToolchain()
-            .getLanguageVersion()
-            .set(JavaLanguageVersion.of(ConventionsProperty.JAVA_VERSION.stringValue(project))));
+        project.getPlugins()
+                .withType(
+                        JavaPlugin.class,
+                        _ -> extensions.getByType(JavaPluginExtension.class)
+                                .getToolchain()
+                                .getLanguageVersion()
+                                .set(JavaLanguageVersion.of(ConventionsProperty.JAVA_VERSION.stringValue(project)))
+                );
 
         // Verifiable rebuilds
         tasks.withType(AbstractArchiveTask.class).configureEach(task -> {

@@ -1,5 +1,6 @@
 plugins {
     id 'com.cleanroommc.versioning' version '2.0.0'
+    id 'com.cleanroommc.conventions.bootstrap'
     id 'java-gradle-plugin'
     id 'maven-publish'
     id 'com.gradle.plugin-publish' version '2.1.1'
@@ -10,7 +11,6 @@ group = 'com.cleanroommc'
 base.archivesName = 'conventions'
 
 java {
-    toolchain.languageVersion = JavaLanguageVersion.of(25)
     withSourcesJar()
     withJavadocJar()
 }
@@ -30,10 +30,6 @@ dependencies {
 
 tasks.named('test', Test) {
     useJUnitPlatform()
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8'
 }
 
 tasks.named('processResources', ProcessResources) {
