@@ -12,6 +12,7 @@ public class ConventionsPlugin implements Plugin<Project> {
     public void apply(Project project) {
         project.getPluginManager().apply(ConventionsBasePlugin.class);
         project.getPluginManager().apply(ConventionsStylePlugin.class);
+        project.getPluginManager().apply(ConventionsTestingPlugin.class);
     }
 
 }
