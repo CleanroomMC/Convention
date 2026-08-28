@@ -23,11 +23,12 @@ repositories {
 dependencies {
     implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${clearskies}"
     implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${formatj}"
+    implementation "com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:${pluginPublish}"
 }
 
 tasks.named('processResources', ProcessResources) {
     from(layout.projectDirectory.dir('..')) {
-        include 'checkstyle.xml', 'formatj.toml'
+        include 'checkstyle.xml', 'formatj.toml', 'cliff.toml'
         into 'resources'
     }
 }
@@ -55,16 +56,6 @@ publishing {
     publications {
         pluginMaven(MavenPublication) {
             artifactId = 'conventions'
-        }
-    }
-    repositories {
-        maven {
-            name = 'CleanroomMaven'
-            url = 'https://maven.cleanroommc.com'
-            credentials(PasswordCredentials)
-            authentication {
-                basic(BasicAuthentication)
-            }
         }
     }
 }

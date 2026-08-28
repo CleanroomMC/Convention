@@ -20,6 +20,7 @@ repositories {
 dependencies {
     implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${pluginProperties['clearskies']}"
     implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${pluginProperties['formatj']}"
+    implementation "com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:${pluginProperties['pluginPublish']}"
 }
 
 sourceSets.main.java.srcDirs = ['../src/main/java']
@@ -30,7 +31,7 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('processResources', ProcessResources) {
     from(layout.projectDirectory.dir('../..')) {
-        include 'checkstyle.xml', 'formatj.toml'
+        include 'checkstyle.xml', 'formatj.toml', 'cliff.toml'
         into 'resources'
     }
 }

@@ -13,6 +13,7 @@ public class ConventionsPlugin implements Plugin<Project> {
         project.getPluginManager().apply(ConventionsBasePlugin.class);
         project.getPluginManager().apply(ConventionsStylePlugin.class);
         project.getPluginManager().apply(ConventionsTestingPlugin.class);
+        project.getPluginManager().apply(ConventionsPublishingPlugin.class);
     }
 
 }

@@ -13,7 +13,8 @@ import org.gradle.api.Project;
 public enum ConventionsFile {
 
     FORMAT_J("formatj.toml"),
-    CHECKSTYLE("checkstyle.xml");
+    CHECKSTYLE("checkstyle.xml"),
+    CLIFF("cliff.toml");
 
     private static final String RESOURCE_DIRECTORY = "/resources/";
 
