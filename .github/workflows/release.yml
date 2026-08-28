@@ -1,0 +1,287 @@
+name: Release
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: Directory that contains the Gradle wrapper. Omit to use the repository root, or a nested wrapper if the root has none.
+        type: string
+        default: '.'
+      artifact-path:
+        description: Jar globs attached to the GitHub Release, relative to the repository root.
+        type: string
+        default: '**/build/libs/*.jar'
+      cliff-config:
+        description: Path to the git-cliff configuration file, relative to the repository root or the Gradle project directory.
+        type: string
+        default: 'cliff.toml'
+      java-version:
+        description: Temurin JDK used to launch Gradle. The project toolchain can still request a different language version.
+        type: string
+        default: '25'
+      timeout-minutes:
+        description: Job timeout in minutes.
+        type: number
+        default: 30
+      cache-provider:
+        description: Gradle User Home cache. basic is MIT-licensed. enhanced is Gradle's proprietary provider and accepts its Terms of Use.
+        type: string
+        default: basic
+      publish-maven:
+        description: Publish Maven publications to maven.cleanroommc.com.
+        type: boolean
+        default: true
+      publish-plugin-portal:
+        description: Publish to the Gradle Plugin Portal. Requires GRADLE_PUBLISH_KEY, GRADLE_PUBLISH_SECRET, SIGNING_KEY and SIGNING_PASSWORD.
+        type: boolean
+        default: false
+    secrets:
+      MAVEN_NAME:
+        required: false
+      MAVEN_PASSWORD:
+        required: false
+      GRADLE_PUBLISH_KEY:
+        required: false
+      GRADLE_PUBLISH_SECRET:
+        required: false
+      SIGNING_KEY:
+        required: false
+      SIGNING_PASSWORD:
+        required: false
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ inputs.timeout-minutes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Setup Java
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: ${{ inputs.java-version }}
+
+      - name: Locate Gradle Wrapper
+        id: gradle
+        env:
+          WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        run: |
+          set -euo pipefail
+          if [ -f "${WORKING_DIRECTORY}/gradlew" ]; then
+            echo "dir=${WORKING_DIRECTORY}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          mapfile -t wrappers < <(find . -maxdepth 2 -type f -name gradlew ! -path './.git/*' | sort)
+          if [ "${#wrappers[@]}" -eq 1 ]; then
+            echo "dir=$(dirname "${wrappers[0]}")" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::error::Gradle wrapper not found in '${WORKING_DIRECTORY}', and no unique wrapper within two directory levels."
+          exit 1
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          validate-wrappers: true
+          cache-read-only: true
+          cache-provider: ${{ inputs.cache-provider }}
+
+      - name: Build
+        working-directory: ${{ steps.gradle.outputs.dir }}
+        run: ./gradlew build --no-configuration-cache -Pversioning.publish
+
+      - name: Resolve git-cliff config
+        id: cliff
+        env:
+          CLIFF_CONFIG: ${{ inputs.cliff-config }}
+          GRADLE_DIR: ${{ steps.gradle.outputs.dir }}
+        run: |
+          set -euo pipefail
+          if [ -f "${GRADLE_DIR}/${CLIFF_CONFIG}" ]; then
+            echo "config=${GRADLE_DIR}/${CLIFF_CONFIG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ -f "${CLIFF_CONFIG}" ]; then
+            echo "config=${CLIFF_CONFIG}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "::error::git-cliff config '${CLIFF_CONFIG}' was not found in '${GRADLE_DIR}' after Gradle ran, or at the repository root. Apply the conventions plugin so it unpacks cliff.toml, or pass cliff-config."
+          exit 1
+
+      - name: Generate release notes
+        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0
+        with:
+          config: ${{ steps.cliff.outputs.config }}
+          args: --latest --strip all
+        env:
+          OUTPUT: RELEASE_NOTES.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Generate Changelog
+        uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0
+        with:
+          config: ${{ steps.cliff.outputs.config }}
+          args: --workdir .
+        env:
+          OUTPUT: CHANGELOG.md
+          CLIFF_INCLUDE_DATE: '1'
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Attach Any Issue Authors
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 <<'PY'
+          import os
+          import re
+          import subprocess
+
+          files = ('RELEASE_NOTES.md', 'CHANGELOG.md')
+          line_re = re.compile(
+              r'^(\s*)\*\[Fixes issue ((?:[\w.-]+/[\w.-]+)?#\d+)(?: by @([^\]]+))?\]\*\s*$'
+          )
+          default_repo = os.environ['GITHUB_REPOSITORY']
+          authors = {}
+
+          def lookup(ref):
+              if ref in authors:
+                  return authors[ref]
+              if '/' in ref.split('#', 1)[0]:
+                  repo, number = ref.split('#', 1)
+              else:
+                  repo, number = default_repo, ref[1:]
+              result = subprocess.run(
+                  ['gh', 'api', f'repos/{repo}/issues/{number}', '--jq', '.user.login'],
+                  capture_output=True,
+                  text=True,
+              )
+              login = result.stdout.strip() if result.returncode == 0 else ''
+              authors[ref] = login
+              return login
+
+          for path in files:
+              if not os.path.isfile(path):
+                  continue
+              with open(path, encoding='utf-8') as handle:
+                  original = handle.read()
+              rewritten = []
+              changed = False
+              for line in original.splitlines(keepends=True):
+                  newline = '\n' if line.endswith('\n') else ''
+                  match = line_re.match(line.rstrip('\n'))
+                  if match is None or match.group(3):
+                      rewritten.append(line)
+                      continue
+                  indent, ref = match.group(1), match.group(2)
+                  login = lookup(ref)
+                  if login:
+                      rewritten.append(f'{indent}*[Fixes issue {ref} by @{login}]*{newline}')
+                      changed = True
+                  else:
+                      rewritten.append(line)
+              if changed:
+                  with open(path, 'w', encoding='utf-8') as handle:
+                      handle.write(''.join(rewritten))
+          PY
+
+      - name: Preflight Destinations
+        if: github.ref_type == 'tag'
+        env:
+          ARTIFACT_PATH: ${{ inputs.artifact-path }}
+          GRADLE_DIR: ${{ steps.gradle.outputs.dir }}
+          PUBLISH_MAVEN: ${{ inputs.publish-maven }}
+          PUBLISH_PLUGIN_PORTAL: ${{ inputs.publish-plugin-portal }}
+          MAVEN_NAME: ${{ secrets.MAVEN_NAME }}
+          MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+          SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          files=($ARTIFACT_PATH)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No release artifacts matched '${ARTIFACT_PATH}'."
+            exit 1
+          fi
+
+          require_task() {
+            local task="$1"
+            local output
+            if ! output="$(cd "${GRADLE_DIR}" && ./gradlew help --task "${task}" --no-configuration-cache 2>&1)"; then
+              printf '%s\n' "${output}"
+              echo "::error::Enabled destination requires Gradle task '${task}', but it was not found in '${GRADLE_DIR}'."
+              exit 1
+            fi
+          }
+
+          if [ "${PUBLISH_MAVEN}" = 'true' ]; then
+            if [ -z "${MAVEN_NAME}" ] || [ -z "${MAVEN_PASSWORD}" ]; then
+              echo "::error::publish-maven is enabled but MAVEN_NAME or MAVEN_PASSWORD is not set."
+              exit 1
+            fi
+            require_task publishAllPublicationsToCleanroomRepository
+          fi
+
+          if [ "${PUBLISH_PLUGIN_PORTAL}" = 'true' ]; then
+            missing=()
+            [ -z "${GRADLE_PUBLISH_KEY}" ] && missing+=(GRADLE_PUBLISH_KEY)
+            [ -z "${GRADLE_PUBLISH_SECRET}" ] && missing+=(GRADLE_PUBLISH_SECRET)
+            [ -z "${SIGNING_KEY}" ] && missing+=(SIGNING_KEY)
+            [ -z "${SIGNING_PASSWORD}" ] && missing+=(SIGNING_PASSWORD)
+            if [ "${#missing[@]}" -ne 0 ]; then
+              echo "::error::publish-plugin-portal is enabled but missing secrets: ${missing[*]}."
+              exit 1
+            fi
+            require_task publishPlugins
+          fi
+
+      - name: Publish to Cleanroom Maven
+        if: ${{ inputs.publish-maven && github.ref_type == 'tag' }}
+        working-directory: ${{ steps.gradle.outputs.dir }}
+        env:
+          ORG_GRADLE_PROJECT_CleanroomUsername: ${{ secrets.MAVEN_NAME }}
+          ORG_GRADLE_PROJECT_CleanroomPassword: ${{ secrets.MAVEN_PASSWORD }}
+        run: ./gradlew publishAllPublicationsToCleanroomRepository --no-configuration-cache -Pversioning.publish
+
+      - name: Publish to Plugin Portal
+        if: ${{ inputs.publish-plugin-portal && github.ref_type == 'tag' }}
+        working-directory: ${{ steps.gradle.outputs.dir }}
+        env:
+          GRADLE_PUBLISH_KEY: ${{ secrets.GRADLE_PUBLISH_KEY }}
+          GRADLE_PUBLISH_SECRET: ${{ secrets.GRADLE_PUBLISH_SECRET }}
+          ORG_GRADLE_PROJECT_signingKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
+        run: ./gradlew publishPlugins --no-configuration-cache -Pversioning.publish
+
+      - name: Create GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          ARTIFACT_PATH: ${{ inputs.artifact-path }}
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob
+          files=($ARTIFACT_PATH)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::No release artifacts matched '${ARTIFACT_PATH}'."
+            exit 1
+          fi
+          gh release create "$TAG" --title "$TAG" --notes-file RELEASE_NOTES.md CHANGELOG.md "${files[@]}"
