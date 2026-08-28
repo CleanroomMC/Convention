@@ -18,6 +18,7 @@ repositories {
 }
 
 dependencies {
+    implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${pluginProperties['clearskies']}"
     implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${pluginProperties['formatj']}"
 }
 

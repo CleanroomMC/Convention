@@ -21,6 +21,7 @@ repositories {
 }
 
 dependencies {
+    implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${clearskies}"
     implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${formatj}"
 }
 
