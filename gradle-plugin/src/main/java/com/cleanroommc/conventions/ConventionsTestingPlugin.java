@@ -24,7 +24,6 @@ public class ConventionsTestingPlugin implements Plugin<Project> {
 
             dependencies.add(testImplementation, dependencies.platform("org.junit:junit-bom:" + JUNIT_VERSION));
             dependencies.add(testImplementation, "org.junit.jupiter:junit-jupiter");
-            dependencies.add(testImplementation, "org.junit.vintage:junit-vintage-engine");
             dependencies.add(testRuntimeOnly, "org.junit.platform:junit-platform-launcher");
 
             dependencies.add(testImplementation, "org.mockito:mockito-core:" + MOCKITO_VERSION);
