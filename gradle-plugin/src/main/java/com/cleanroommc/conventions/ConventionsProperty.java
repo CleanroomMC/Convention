@@ -6,7 +6,8 @@ import org.gradle.api.provider.Provider;
 public enum ConventionsProperty {
 
     JAVA_VERSION("conventions.javaMajor"),
-    MOD_PUBLISHING("conventions.modPublishing");
+    MOD_PUBLISHING("conventions.modPublishing"),
+    REPO_URL("conventions.repoUrl");
 
     private final String key;
 
