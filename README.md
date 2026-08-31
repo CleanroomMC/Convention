@@ -1,4 +1,4 @@
-# Convention
+# Conventions
 Cleanroom's Conventions. Here you can find how a Cleanroom's project is to behave.
 
 Contains the following conventional files.

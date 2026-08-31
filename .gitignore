@@ -1,5 +1,5 @@
-# >>> cleanroom-convention
-# Managed by CleanroomMC/Convention. Do not edit the marked region locally.
+# >>> cleanroom-conventions
+# Managed by CleanroomMC/Conventions. Do not edit the marked region locally.
 # Change it there and bump the convention plugin version instead.
 # Project-specific ignores go below the closing marker.
 #
@@ -121,7 +121,7 @@ $RECYCLE.BIN/
 *.bak
 *.orig
 *.rej
-# <<< cleanroom-convention
+# <<< cleanroom-conventions
 
 # Unpacked by the plugin when this repo builds against itself
 gradle-plugin/checkstyle.xml

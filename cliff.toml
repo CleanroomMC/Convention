@@ -1,4 +1,4 @@
-# git-cliff configuration. Managed by CleanroomMC/Convention. Do not edit locally.
+# git-cliff configuration. Managed by CleanroomMC/Conventions. Do not edit locally.
 #
 # The shared release workflow runs this twice: once with --latest for the GitHub
 # Release body, once over the full history for the CHANGELOG.md attached to it.
