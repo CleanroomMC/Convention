@@ -47,7 +47,7 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
         PublishingExtension publishing = project.getExtensions().getByType(PublishingExtension.class);
         addCleanroomRepository(publishing);
         project.afterEvaluate(_ -> {
-            if (publishing.getPublications().findByName(MAVEN_PUBLICATION) != null) {
+            if (project.getPluginManager().hasPlugin(JAVA_GRADLE_PLUGIN_ID) || publishing.getPublications().findByName(MAVEN_PUBLICATION) != null) {
                 return;
             }
             publishing.getPublications()
