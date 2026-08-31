@@ -48,7 +48,7 @@ public class ConventionsBasePlugin implements Plugin<Project> {
                         _ -> extensions.getByType(JavaPluginExtension.class)
                                 .getToolchain()
                                 .getLanguageVersion()
-                                .set(JavaLanguageVersion.of(ConventionsProperty.JAVA_VERSION.stringValue(project)))
+                                .set(JavaLanguageVersion.of(ConventionsProperty.JAVA_VERSION.get(project)))
                 );
 
         // Verifiable rebuilds

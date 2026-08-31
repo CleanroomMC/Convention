@@ -2,6 +2,7 @@ package com.cleanroommc.conventions;
 
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
+import org.gradle.api.provider.Provider;
 
 public enum ConventionsProperty {
 
@@ -13,24 +14,16 @@ public enum ConventionsProperty {
         this.key = key;
     }
 
-    public String key() {
-        return key;
+    public Provider<String> map(Project project) {
+        return project.getProviders().gradleProperty(key);
     }
 
-    public Object value(Project project) {
-        Object value = project.property(key);
-        if (value == null) {
-            throw new GradleException("Missing property value for " + key);
-        }
-        return value;
+    public String get(Project project, String defaultValue) {
+        return map(project).getOrElse(defaultValue);
     }
 
-    public String stringValue(Project project) {
-        Object value = value(project);
-        if (value instanceof String stringValue) {
-            return stringValue;
-        }
-        return value.toString();
+    public String get(Project project) {
+        return map(project).get();
     }
 
     @Override
