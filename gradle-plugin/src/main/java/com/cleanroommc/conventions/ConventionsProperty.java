@@ -1,12 +1,12 @@
 package com.cleanroommc.conventions;
 
-import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.provider.Provider;
 
 public enum ConventionsProperty {
 
-    JAVA_VERSION("conventions.javaMajor");
+    JAVA_VERSION("conventions.javaMajor"),
+    MOD_PUBLISHING("conventions.modPublishing");
 
     private final String key;
 

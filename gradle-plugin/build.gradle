@@ -21,9 +21,11 @@ repositories {
 }
 
 dependencies {
+    implementation "com.cleanroommc.versioning:com.cleanroommc.versioning.gradle.plugin:${versioningPlugin}"
     implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${clearskies}"
     implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${formatj}"
     implementation "com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:${pluginPublish}"
+    implementation "me.modmuss50.mod-publish-plugin:me.modmuss50.mod-publish-plugin.gradle.plugin:${modPublish}"
 }
 
 tasks.named('processResources', ProcessResources) {
@@ -42,6 +44,38 @@ gradlePlugin {
             implementationClass = "${group}.conventions.ConventionsPlugin"
             displayName = 'Conventions'
             description = 'Sets project conventions for CleanroomMC projects.'
+        }
+        conventionsBase {
+            id = "${group}.conventions.base"
+            implementationClass = "${group}.conventions.ConventionsBasePlugin"
+            displayName = 'Cleanroom Base Conventions'
+            description = 'Sets base project conventions for CleanroomMC projects.'
+        }
+        conventionsStyle {
+            id = "${group}.conventions.style"
+            implementationClass = "${group}.conventions.ConventionsStylePlugin"
+            displayName = 'Cleanroom Style Conventions'
+            description = 'Sets code style conventions for CleanroomMC projects.'
+        }
+        conventionsTesting {
+            id = "${group}.conventions.testing"
+            implementationClass = "${group}.conventions.ConventionsTestingPlugin"
+            displayName = 'Cleanroom Testing Conventions'
+            description = 'Sets testing conventions for CleanroomMC projects.'
+        }
+        conventionsPublishing {
+            id = "${group}.conventions.publishing"
+            implementationClass = "${group}.conventions.ConventionsPublishingPlugin"
+            displayName = 'Cleanroom Publishing Conventions'
+            description = 'Sets publishing conventions for CleanroomMC projects.'
+        }
+        conventionsMod {
+            id = "${group}.conventions.mod"
+            implementationClass = "${group}.conventions.ConventionsModPlugin"
+            displayName = 'Cleanroom Mod Conventions'
+            description = 'Sets mod conventions for CleanroomMC projects.'
+        }
+        configureEach {
             tags.set(['minecraft', 'conventions', '1.12', 'cleanroom'])
             compatibility {
                 features {

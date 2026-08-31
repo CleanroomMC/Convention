@@ -14,6 +14,9 @@ public class ConventionsPlugin implements Plugin<Project> {
         project.getPluginManager().apply(ConventionsStylePlugin.class);
         project.getPluginManager().apply(ConventionsTestingPlugin.class);
         project.getPluginManager().apply(ConventionsPublishingPlugin.class);
+        if (ConventionsProperty.MOD_PUBLISHING.map(project).map(Boolean::parseBoolean).getOrElse(false)) {
+            project.getPluginManager().apply(ConventionsModPlugin.class);
+        }
     }
 
 }

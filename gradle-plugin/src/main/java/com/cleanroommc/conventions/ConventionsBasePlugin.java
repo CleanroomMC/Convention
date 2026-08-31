@@ -19,13 +19,13 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion;
  */
 public class ConventionsBasePlugin implements Plugin<Project> {
 
-    public static final String EXTENSION = "convention";
-
     @Override
     public void apply(Project project) {
         PluginManager plugins = project.getPluginManager();
         ExtensionContainer extensions = project.getExtensions();
         TaskContainer tasks = project.getTasks();
+
+        ConventionsExtension.register(project);
 
         // Apply Cleanroom Versioning
         plugins.apply("com.cleanroommc.versioning");

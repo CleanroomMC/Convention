@@ -18,9 +18,11 @@ repositories {
 }
 
 dependencies {
+    implementation "com.cleanroommc.versioning:com.cleanroommc.versioning.gradle.plugin:${pluginProperties['versioningPlugin']}"
     implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${pluginProperties['clearskies']}"
     implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${pluginProperties['formatj']}"
     implementation "com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:${pluginProperties['pluginPublish']}"
+    implementation "me.modmuss50.mod-publish-plugin:me.modmuss50.mod-publish-plugin.gradle.plugin:${pluginProperties['modPublish']}"
 }
 
 sourceSets.main.java.srcDirs = ['../src/main/java']
