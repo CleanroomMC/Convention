@@ -1,0 +1,333 @@
+package com.cleanroommc.conventions;
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+final class CliffPipeline {
+
+    static final String COLLAPSE_COMMAND = "tr '\\n' '\\r'";
+
+    private static final Pattern CONVENTIONAL_HEADER = Pattern.compile("^(?<type>[^\\s(:!]+)(?:\\((?<scope>[^)]*)\\))?(?<breaking>!)?:\\s*(?<desc>.*)$");
+    private static final Pattern TOML_STRING = Pattern.compile("(?:'([^']*)'|\"((?:\\\\.|[^\"])*)\")");
+    private static final Pattern GROUP_PREFIX = Pattern.compile("^<!--\\s*\\d+\\s*-->");
+
+    private final boolean splitCommits;
+    private final List<String> processingOrder;
+    private final List<Preprocessor> preprocessors;
+    private final List<Parser> parsers;
+
+    private CliffPipeline(boolean splitCommits, List<String> processingOrder, List<Preprocessor> preprocessors, List<Parser> parsers) {
+        this.splitCommits = splitCommits;
+        this.processingOrder = List.copyOf(processingOrder);
+        this.preprocessors = List.copyOf(preprocessors);
+        this.parsers = List.copyOf(parsers);
+    }
+
+    static CliffPipeline load() {
+        return parse(readCliffToml());
+    }
+
+    static CliffPipeline parse(String toml) {
+        String git = section(toml, "git");
+        return new CliffPipeline(
+                booleanValue(git, "split_commits"),
+                stringArray(git, "processing_order"),
+                parsePreprocessors(bracketArray(git, "commit_preprocessors")),
+                parseParsers(bracketArray(git, "commit_parsers"))
+        );
+    }
+
+    boolean splitCommits() {
+        return splitCommits;
+    }
+
+    List<String> processingOrder() {
+        return processingOrder;
+    }
+
+    List<Preprocessor> preprocessors() {
+        return preprocessors;
+    }
+
+    List<Parser> parsers() {
+        return parsers;
+    }
+
+    List<CliffEntry> process(String message) {
+        String rendered = message;
+        for (Preprocessor preprocessor : preprocessors) {
+            rendered = preprocessor.apply(rendered);
+        }
+        List<String> pieces = new ArrayList<>();
+        if (splitCommits) {
+            for (String line : rendered.split("\n", -1)) {
+                if (!line.isEmpty()) {
+                    pieces.add(line);
+                }
+            }
+        } else {
+            pieces.add(rendered);
+        }
+        List<CliffEntry> entries = new ArrayList<>();
+        for (String piece : pieces) {
+            Parser parser = match(piece);
+            if (parser == null || parser.skip) {
+                continue;
+            }
+            Matcher header = CONVENTIONAL_HEADER.matcher(header(piece));
+            String scope = null;
+            String description = header(piece);
+            if (header.matches()) {
+                scope = header.group("scope");
+                description = header.group("desc");
+            }
+            entries.add(new CliffEntry(displayGroup(parser.group), scope, description, piece));
+        }
+        return entries;
+    }
+
+    private Parser match(String message) {
+        String trimmed = message.trim();
+        for (Parser parser : parsers) {
+            if (parser.message.matcher(trimmed).find()) {
+                return parser;
+            }
+        }
+        return null;
+    }
+
+    private static String header(String message) {
+        int end = message.length();
+        for (int i = 0; i < message.length(); i++) {
+            char c = message.charAt(i);
+            if (c == '\n' || c == '\r') {
+                end = i;
+                break;
+            }
+        }
+        return message.substring(0, end).trim();
+    }
+
+    private static String displayGroup(String group) {
+        if (group == null) {
+            return "";
+        }
+        return GROUP_PREFIX.matcher(group).replaceFirst("").trim();
+    }
+
+    private static String readCliffToml() {
+        try (InputStream stream = CliffPipeline.class.getResourceAsStream("/resources/cliff.toml")) {
+            if (stream != null) {
+                return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+        for (Path dir = Path.of("").toAbsolutePath(); dir != null; dir = dir.getParent()) {
+            Path candidate = dir.resolve("cliff.toml");
+            if (Files.isRegularFile(candidate)) {
+                try {
+                    return Files.readString(candidate);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+        }
+        throw new IllegalStateException("cliff.toml was not on the classpath or in a parent directory");
+    }
+
+    private static String section(String toml, String name) {
+        Pattern header = Pattern.compile("(?m)^\\[" + Pattern.quote(name) + "]\\s*$");
+        Matcher matcher = header.matcher(toml);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("Missing [" + name + "] in cliff.toml");
+        }
+        int start = matcher.end();
+        Matcher next = Pattern.compile("(?m)^\\[").matcher(toml);
+        int end = toml.length();
+        if (next.find(start)) {
+            end = next.start();
+        }
+        return toml.substring(start, end);
+    }
+
+    private static boolean booleanValue(String section, String key) {
+        Matcher matcher = Pattern.compile("(?m)^" + Pattern.quote(key) + "\\s*=\\s*(true|false)\\s*$").matcher(section);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("Missing " + key + " in [git]");
+        }
+        return Boolean.parseBoolean(matcher.group(1));
+    }
+
+    private static List<String> stringArray(String section, String key) {
+        String body = bracketArray(section, key);
+        List<String> values = new ArrayList<>();
+        Matcher matcher = TOML_STRING.matcher(body);
+        while (matcher.find()) {
+            values.add(unescape(matcher));
+        }
+        return values;
+    }
+
+    private static String bracketArray(String section, String key) {
+        Matcher matcher = Pattern.compile(Pattern.quote(key) + "\\s*=\\s*\\[").matcher(section);
+        if (!matcher.find()) {
+            throw new IllegalArgumentException("Missing " + key + " array in [git]");
+        }
+        return sliceBalanced(section, matcher.end() - 1, '[', ']');
+    }
+
+    private static List<Preprocessor> parsePreprocessors(String arrayBody) {
+        List<Preprocessor> preprocessors = new ArrayList<>();
+        for (String object : objects(arrayBody)) {
+            String pattern = requiredString(object, "pattern");
+            String replace = optionalString(object, "replace");
+            String replaceCommand = optionalString(object, "replace_command");
+            preprocessors.add(new Preprocessor(Pattern.compile(pattern), replace, replaceCommand));
+        }
+        return preprocessors;
+    }
+
+    private static List<Parser> parseParsers(String arrayBody) {
+        List<Parser> parsers = new ArrayList<>();
+        for (String object : objects(arrayBody)) {
+            String message = requiredString(object, "message");
+            String group = optionalString(object, "group");
+            boolean skip = object.contains("skip = true");
+            parsers.add(new Parser(Pattern.compile(message), group, skip));
+        }
+        return parsers;
+    }
+
+    private static List<String> objects(String arrayBody) {
+        List<String> objects = new ArrayList<>();
+        for (int i = 0; i < arrayBody.length(); i++) {
+            i = skipString(arrayBody, i);
+            if (i >= arrayBody.length()) {
+                break;
+            }
+            if (arrayBody.charAt(i) == '{') {
+                String object = '{' + sliceBalanced(arrayBody, i, '{', '}') + '}';
+                objects.add(object);
+                i += object.length() - 1;
+            }
+        }
+        return objects;
+    }
+
+    private static String sliceBalanced(String text, int openIndex, char open, char close) {
+        int depth = 0;
+        for (int i = openIndex; i < text.length(); i++) {
+            i = skipString(text, i);
+            if (i >= text.length()) {
+                break;
+            }
+            char c = text.charAt(i);
+            if (c == open) {
+                depth++;
+            } else if (c == close) {
+                depth--;
+                if (depth == 0) {
+                    return text.substring(openIndex + 1, i);
+                }
+            }
+        }
+        throw new IllegalArgumentException("Unbalanced " + open + close + " in [git]");
+    }
+
+    private static int skipString(String text, int index) {
+        if (index >= text.length()) {
+            return index;
+        }
+        char quote = text.charAt(index);
+        if (quote != '\'' && quote != '"') {
+            return index;
+        }
+        for (int i = index + 1; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (quote == '"' && c == '\\' && i + 1 < text.length()) {
+                i++;
+                continue;
+            }
+            if (c == quote) {
+                return i;
+            }
+        }
+        return text.length();
+    }
+
+    private static String requiredString(String object, String key) {
+        String value = optionalString(object, key);
+        if (value == null) {
+            throw new IllegalArgumentException("Missing " + key + " in " + object);
+        }
+        return value;
+    }
+
+    private static String optionalString(String object, String key) {
+        Matcher matcher = Pattern.compile(Pattern.quote(key) + "\\s*=\\s*").matcher(object);
+        if (!matcher.find()) {
+            return null;
+        }
+        Matcher quoted = TOML_STRING.matcher(object);
+        if (!quoted.find(matcher.end()) || quoted.start() != matcher.end()) {
+            return null;
+        }
+        return unescape(quoted);
+    }
+
+    private static String unescape(Matcher matcher) {
+        if (matcher.group(1) != null) {
+            return matcher.group(1);
+        }
+        String raw = matcher.group(2);
+        StringBuilder out = new StringBuilder(raw.length());
+        for (int i = 0; i < raw.length(); i++) {
+            char c = raw.charAt(i);
+            if (c != '\\' || i + 1 >= raw.length()) {
+                out.append(c);
+                continue;
+            }
+            char next = raw.charAt(++i);
+            out.append(switch (next) {
+                case 'n' -> '\n';
+                case 'r' -> '\r';
+                case 't' -> '\t';
+                case '"' -> '"';
+                case '\\' -> '\\';
+                default -> next;
+            });
+        }
+        return out.toString();
+    }
+
+    record CliffEntry(String group, String scope, String description, String message) {}
+
+    record Parser(Pattern message, String group, boolean skip) {}
+
+    record Preprocessor(Pattern pattern, String replace, String replaceCommand) {
+
+        String apply(String message) {
+            if (replace != null) {
+                return pattern.matcher(message).replaceAll(replace);
+            }
+            if (replaceCommand == null || !pattern.matcher(message).find()) {
+                return message;
+            }
+            if (!COLLAPSE_COMMAND.equals(replaceCommand)) {
+                throw new IllegalStateException("Unsupported replace_command: " + replaceCommand);
+            }
+            return message.replace('\n', '\r');
+        }
+
+    }
+
+}
