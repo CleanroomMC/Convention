@@ -7,7 +7,11 @@ public enum ConventionsProperty {
 
     JAVA_VERSION("conventions.javaMajor"),
     MOD_PUBLISHING("conventions.modPublishing"),
-    REPO_URL("conventions.repoUrl");
+    REPO_URL("conventions.repoUrl"),
+    CHECKSTYLE_VERSION("conventions.checkstyleVersion"),
+    JUNIT_VERSION("conventions.junitVersion"),
+    MOCKITO_VERSION("conventions.mockitoVersion"),
+    ASSERTJ_VERSION("conventions.assertjVersion");
 
     private final String key;
 
