@@ -1,5 +1,6 @@
 package com.cleanroommc.conventions;
 
+import com.cleanroommc.versioning.gradle.CleanroomVersioningPlugin;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.plugins.ExtensionContainer;
@@ -19,6 +20,8 @@ import org.gradle.jvm.toolchain.JavaLanguageVersion;
  */
 public class ConventionsBasePlugin implements Plugin<Project> {
 
+    private static final String DEFAULT_JAVA_VERSION = "25";
+
     @Override
     public void apply(Project project) {
         PluginManager plugins = project.getPluginManager();
@@ -28,17 +31,15 @@ public class ConventionsBasePlugin implements Plugin<Project> {
         ConventionsExtension.register(project);
 
         // Apply Cleanroom Versioning
-        plugins.apply("com.cleanroommc.versioning");
+        plugins.apply(CleanroomVersioningPlugin.class);
 
         // UTF-8 Encoding on all JavaCompile, Javadoc, Test tasks
         tasks.withType(JavaCompile.class).configureEach(task -> task.getOptions().setEncoding("UTF-8"));
-        tasks.withType(Javadoc.class).configureEach(task -> task.getOptions().setEncoding("UTF-8"));
         tasks.withType(Test.class).configureEach(task -> task.setDefaultCharacterEncoding("UTF-8"));
-
-        // Muted Javadocs 'missing' group, '-quiet' is filler as the option takes no argument
         tasks.withType(Javadoc.class).configureEach(task -> {
-            CoreJavadocOptions options = (CoreJavadocOptions) task.getOptions();
-            options.addStringOption("Xdoclint:all,-missing", "-quiet");
+            task.getOptions().setEncoding("UTF-8");
+            // Muted Javadocs 'missing' group, '-quiet' is filler as the option takes no argument
+            ((CoreJavadocOptions) task.getOptions()).addStringOption("Xdoclint:all,-missing", "-quiet");
         });
 
         // Gets "conventions.javaMajor" and sets Java toolchain to it
@@ -48,7 +49,7 @@ public class ConventionsBasePlugin implements Plugin<Project> {
                         _ -> extensions.getByType(JavaPluginExtension.class)
                                 .getToolchain()
                                 .getLanguageVersion()
-                                .set(JavaLanguageVersion.of(ConventionsProperty.JAVA_VERSION.get(project)))
+                                .set(JavaLanguageVersion.of(ConventionsProperty.JAVA_VERSION.get(project, DEFAULT_JAVA_VERSION)))
                 );
 
         // Verifiable rebuilds
