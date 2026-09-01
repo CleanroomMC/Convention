@@ -1,19 +1,10 @@
 plugins {
-    id 'com.cleanroommc.versioning' version '2.0.0'
     id 'com.cleanroommc.conventions.bootstrap'
     id 'java-gradle-plugin'
-    id 'maven-publish'
-    id 'com.gradle.plugin-publish' version '2.1.1'
-    id 'signing'
 }
 
 group = 'com.cleanroommc'
 base.archivesName = 'conventions'
-
-java {
-    withSourcesJar()
-    withJavadocJar()
-}
 
 repositories {
     mavenCentral()
@@ -21,11 +12,16 @@ repositories {
 }
 
 dependencies {
+    compileOnly "org.jspecify:jspecify:${jspecify}"
+
     implementation "com.cleanroommc.versioning:com.cleanroommc.versioning.gradle.plugin:${versioningPlugin}"
     implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${clearskies}"
     implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${formatj}"
     implementation "com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:${pluginPublish}"
-    implementation "me.modmuss50.mod-publish-plugin:me.modmuss50.mod-publish-plugin.gradle.plugin:${modPublish}"
+    // Curseforge and Modrinth appear in ConventionsExtension's public signatures.
+    api "me.modmuss50.mod-publish-plugin:me.modmuss50.mod-publish-plugin.gradle.plugin:${modPublish}"
+
+    testImplementation gradleTestKit()
 }
 
 tasks.named('processResources', ProcessResources) {
@@ -91,17 +87,5 @@ publishing {
         pluginMaven(MavenPublication) {
             artifactId = 'conventions'
         }
-    }
-}
-
-def signingKey = providers.gradleProperty('signingKey')
-def signingPassword = providers.gradleProperty('signingPassword')
-
-signing {
-    required = {
-        gradle.taskGraph.allTasks.any { it.name == 'publishPlugins' }
-    }
-    if (signingKey.present && signingPassword.present) {
-        useInMemoryPgpKeys(signingKey.get(), signingPassword.get())
     }
 }
