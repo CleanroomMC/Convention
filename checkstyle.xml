@@ -63,6 +63,13 @@
       <property name="illegalPkgs" value="sun, com.sun, jdk.internal"/>
       <property name="severity" value="warning"/>
     </module>
+    <!-- AssertJ is the only assertion library. illegalPkgs prefix-matches, which is what catches static imports. -->
+    <module name="IllegalImport">
+      <property name="id" value="ForeignAssertions"/>
+      <property name="illegalPkgs" value="org.hamcrest, junit.framework, org.junit.Assert, org.junit.jupiter.api.Assertions"/>
+      <property name="illegalClasses" value="org.junit.Assert, org.junit.jupiter.api.Assertions"/>
+      <message key="import.illegal" value="Assert with AssertJ (org.assertj.core.api.Assertions), not {0}."/>
+    </module>
 
     <!-- Naming -->
     <module name="PackageName">
@@ -144,5 +151,11 @@
 
     <!-- Suppress with // CHECKSTYLE:OFF ... // CHECKSTYLE:ON when a rule is genuinely wrong. -->
     <module name="SuppressionCommentFilter"/>
+  </module>
+
+  <!-- Matches src/test, src/testFixtures, src/integrationTest and friends. -->
+  <module name="SuppressionSingleFilter">
+    <property name="id" value="AssertJOutsideTests"/>
+    <property name="files" value="[\\/]src[\\/][^\\/]*[Tt]est[^\\/]*[\\/]"/>
   </module>
 </module>
