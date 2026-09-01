@@ -30,47 +30,36 @@ public abstract class ConventionsExtension {
         action.execute(getMods());
     }
 
-    ModsExtension registerMods() {
-        return ((ExtensionAware) this).getExtensions().create(ModsExtension.NAME, ModsExtension.class);
+    ModsExtension registerMods(ModPublishExtension publishMods) {
+        return ((ExtensionAware) this).getExtensions().create(ModsExtension.NAME, ModsExtension.class, publishMods);
     }
 
     public abstract static class ModsExtension {
 
         public static final String NAME = "mods";
 
-        private final Project project;
+        private final ModPublishExtension publishMods;
 
         @Inject
-        public ModsExtension(Project project) {
-            this.project = project;
+        public ModsExtension(ModPublishExtension publishMods) {
+            this.publishMods = publishMods;
         }
 
-        public Curseforge getCurseforge() {
-            return publishMods().curseforge(_ -> {}).get();
-        }
-
+        // Registering happens inside the action, so reading the DSL never creates a platform on its own.
         public void setCurseforge(String projectId) {
-            getCurseforge().getProjectId().set(projectId);
+            publishMods.curseforge(curseforge -> curseforge.getProjectId().set(projectId));
         }
 
         public void curseforge(Action<Curseforge> action) {
-            publishMods().curseforge(action);
-        }
-
-        public Modrinth getModrinth() {
-            return publishMods().modrinth(_ -> {}).get();
+            publishMods.curseforge(action);
         }
 
         public void setModrinth(String projectId) {
-            getModrinth().getProjectId().set(projectId);
+            publishMods.modrinth(modrinth -> modrinth.getProjectId().set(projectId));
         }
 
         public void modrinth(Action<Modrinth> action) {
-            publishMods().modrinth(action);
-        }
-
-        private ModPublishExtension publishMods() {
-            return project.getExtensions().getByType(ModPublishExtension.class);
+            publishMods.modrinth(action);
         }
 
     }

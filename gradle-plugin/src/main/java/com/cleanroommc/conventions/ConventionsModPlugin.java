@@ -9,6 +9,7 @@ import me.modmuss50.mpp.platforms.curseforge.Curseforge;
 import me.modmuss50.mpp.platforms.modrinth.Modrinth;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
+import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.tasks.bundling.Jar;
 
 public class ConventionsModPlugin implements Plugin<Project> {
@@ -21,13 +22,14 @@ public class ConventionsModPlugin implements Plugin<Project> {
         project.getPluginManager().apply(CleanroomVersioningPlugin.class);
         // Apply mod-publish-plugin
         project.getPluginManager().apply(MOD_PUBLISH_PLUGIN_ID);
-        ConventionsExtension.register(project).registerMods();
         ModPublishExtension publishing = project.getExtensions().getByType(ModPublishExtension.class);
+        ConventionsExtension.register(project).registerMods(publishing);
 
         // Apply "forge" as default mod loader, TODO: Cleanroom when applicable
         publishing.getModLoaders().convention(List.of("forge"));
         // Apply output of "jar" task as the publishing file by default
-        publishing.getFile().convention(project.getTasks().named("jar", Jar.class).flatMap(Jar::getArchiveFile));
+        project.getPlugins()
+                .withType(JavaPlugin.class, _ -> publishing.getFile().convention(project.getTasks().named("jar", Jar.class).flatMap(Jar::getArchiveFile)));
         // Set 5 retries as default
         publishing.getMaxRetries().convention(5);
         // Set release type as the one gotten from Cleanroom Versioning
