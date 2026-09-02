@@ -1,8 +1,6 @@
 package com.cleanroommc.conventions;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
@@ -25,20 +23,26 @@ class CliffPackTest {
 
     @Test
     void gitSectionMatchesCliffToml() {
-        assertTrue(pipeline.splitCommits());
-        assertEquals(List.of("commit_preprocessors", "split_commits", "conventional_commits", "commit_parsers", "link_parsers"), pipeline.processingOrder());
+        assertThat(pipeline.splitCommits()).isTrue();
+        assertThat(pipeline.processingOrder()).containsExactly(
+                "commit_preprocessors",
+                "split_commits",
+                "conventional_commits",
+                "commit_parsers",
+                "link_parsers"
+        );
 
         List<Preprocessor> preprocessors = pipeline.preprocessors();
-        assertEquals(3, preprocessors.size());
-        assertEquals("\\s*\\((\\w+\\s)?#([0-9]+)\\)", preprocessors.get(0).pattern().pattern());
-        assertEquals("", preprocessors.get(0).replace());
-        assertEquals("(?m)^[ \\t]*[-*][ \\t]+", preprocessors.get(1).pattern().pattern());
-        assertEquals("", preprocessors.get(1).replace());
-        assertEquals("(?s)^(?!pack(?:\\(|:|!)).*\\n", preprocessors.get(2).pattern().pattern());
-        assertEquals(CliffPipeline.COLLAPSE_COMMAND, preprocessors.get(2).replaceCommand());
+        assertThat(preprocessors).hasSize(3);
+        assertThat(preprocessors.get(0).pattern().pattern()).isEqualTo("\\s*\\((\\w+\\s)?#([0-9]+)\\)");
+        assertThat(preprocessors.get(0).replace()).isEmpty();
+        assertThat(preprocessors.get(1).pattern().pattern()).isEqualTo("(?m)^[ \\t]*[-*][ \\t]+");
+        assertThat(preprocessors.get(1).replace()).isEmpty();
+        assertThat(preprocessors.get(2).pattern().pattern()).isEqualTo("(?s)^(?!pack(?:\\(|:|!)).*\\n");
+        assertThat(preprocessors.get(2).replaceCommand()).isEqualTo(CliffPipeline.COLLAPSE_COMMAND);
 
         List<Parser> parsers = pipeline.parsers();
-        assertEquals(17, parsers.size());
+        assertThat(parsers).hasSize(17);
         assertParser(parsers.get(0), "^pack(?:\\(|:|!)", "<!-- 0 -->Comprehensive", false);
         assertParser(parsers.get(1), "^feat", "<!-- 1 -->Feature", false);
         assertParser(parsers.get(2), "^fix", "<!-- 2 -->Bug Fix", false);
@@ -94,7 +98,7 @@ class CliffPackTest {
         )
         void mapsSubjectToGroup(String message, String group, String scope, String description) {
             List<CliffEntry> entries = pipeline.process(message);
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), group, blankToNull(scope), description);
         }
 
@@ -117,12 +121,12 @@ class CliffPackTest {
                 }
         )
         void dropsNoiseTypes(String message) {
-            assertTrue(pipeline.process(message).isEmpty());
+            assertThat(pipeline.process(message)).isEmpty();
         }
 
         @Test
         void dropsChoreEvenWhenItHasABody() {
-            assertTrue(pipeline.process("chore: ignore me\n\nSome body").isEmpty());
+            assertThat(pipeline.process("chore: ignore me\n\nSome body")).isEmpty();
         }
 
     }
@@ -133,22 +137,22 @@ class CliffPackTest {
         @Test
         void stripsBarePullRequestNumber() {
             List<CliffEntry> entries = pipeline.process("feat(args): add a flag (#389)");
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Feature", "args", "add a flag");
         }
 
         @Test
         void stripsWordPrefixedPullRequestNumber() {
             List<CliffEntry> entries = pipeline.process("feat(args): add a flag (GH #389)");
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Feature", "args", "add a flag");
         }
 
         @Test
         void leavesBareIssueReferences() {
             List<CliffEntry> entries = pipeline.process("fix(parser): handle empty input\n\nFixes #12");
-            assertEquals(1, entries.size());
-            assertTrue(entries.getFirst().message().contains("Fixes #12"));
+            assertThat(entries).hasSize(1);
+            assertThat(entries.getFirst().message()).contains("Fixes #12");
         }
 
         @Test
@@ -161,28 +165,28 @@ class CliffPackTest {
                     * also not nested
                     """
             );
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Feature", "example", "example multiline commit");
-            assertFalse(entries.getFirst().message().contains("- not"));
-            assertFalse(entries.getFirst().message().contains("* also"));
-            assertTrue(entries.getFirst().message().contains("not a nested commit"));
-            assertTrue(entries.getFirst().message().contains("also not nested"));
+            assertThat(entries.getFirst().message()).doesNotContain("- not");
+            assertThat(entries.getFirst().message()).doesNotContain("* also");
+            assertThat(entries.getFirst().message()).contains("not a nested commit");
+            assertThat(entries.getFirst().message()).contains("also not nested");
         }
 
         @Test
         void collapsesNonPackBodiesOntoOneLine() {
             List<CliffEntry> entries = pipeline.process("feat(ui): add a button\n\nA longer explanation.\n");
-            assertEquals(1, entries.size());
-            assertFalse(entries.getFirst().message().contains("\n"));
-            assertTrue(entries.getFirst().message().contains("\r"));
+            assertThat(entries).hasSize(1);
+            assertThat(entries.getFirst().message()).doesNotContain("\n");
+            assertThat(entries.getFirst().message()).contains("\r");
         }
 
         @Test
         void doesNotCollapsePackBodies() {
             List<CliffEntry> entries = pipeline.process("pack: subject\n\nfeat(ui): add a button\n");
-            assertEquals(2, entries.size());
-            assertTrue(entries.get(0).message().contains("pack: subject"));
-            assertFalse(entries.get(0).message().contains("feat(ui)"));
+            assertThat(entries).hasSize(2);
+            assertThat(entries.get(0).message()).contains("pack: subject");
+            assertThat(entries.get(0).message()).doesNotContain("feat(ui)");
         }
 
     }
@@ -201,7 +205,7 @@ class CliffPackTest {
                     - perf(inventory): avoid rebuilding the slot list
                     """
             );
-            assertEquals(4, entries.size());
+            assertThat(entries).hasSize(4);
             assertEntry(entries.get(0), "Comprehensive", null, "implemented large surface PR");
             assertEntry(entries.get(1), "Bug Fix", "inventory", "shift-click from the hotbar");
             assertEntry(entries.get(2), "Feature", "inventory", "add extra slots");
@@ -232,7 +236,7 @@ class CliffPackTest {
                     - rewrite the slot renderer
                     """
             );
-            assertEquals(12, entries.size());
+            assertThat(entries).hasSize(12);
             assertEntry(entries.get(0), "Comprehensive", null, "implemented large surface PR");
             assertEntry(entries.get(1), "Feature", "inventory", "add extra slots");
             assertEntry(entries.get(2), "Bug Fix", "inventory", "shift-click from the hotbar");
@@ -256,7 +260,7 @@ class CliffPackTest {
                     * feat(inventory): add extra slots
                     """
             );
-            assertEquals(2, entries.size());
+            assertThat(entries).hasSize(2);
             assertEntry(entries.get(0), "Comprehensive", "inventory", "overhaul the inventory UI");
             assertEntry(entries.get(1), "Feature", "inventory", "add extra slots");
         }
@@ -270,7 +274,7 @@ class CliffPackTest {
                     - feat(api): add a new entrypoint
                     """
             );
-            assertEquals(2, entries.size());
+            assertThat(entries).hasSize(2);
             assertEntry(entries.get(0), "Comprehensive", null, "overhaul the public api");
             assertEntry(entries.get(1), "Feature", "api", "add a new entrypoint");
         }
@@ -285,7 +289,7 @@ class CliffPackTest {
                     fix(ui): correct padding
                     """
             );
-            assertEquals(3, entries.size());
+            assertThat(entries).hasSize(3);
             assertEntry(entries.get(0), "Comprehensive", null, "implemented large surface PR");
             assertEntry(entries.get(1), "Feature", "ui", "add a button");
             assertEntry(entries.get(2), "Bug Fix", "ui", "correct padding");
@@ -300,7 +304,7 @@ class CliffPackTest {
                     - feat(ui): add a button (#10)
                     """
             );
-            assertEquals(2, entries.size());
+            assertThat(entries).hasSize(2);
             assertEntry(entries.get(0), "Comprehensive", null, "implemented large surface PR");
             assertEntry(entries.get(1), "Feature", "ui", "add a button");
         }
@@ -308,7 +312,7 @@ class CliffPackTest {
         @Test
         void tabIndentedBulletsStillParse() {
             List<CliffEntry> entries = pipeline.process("pack: subject\n\n\t- feat(ui): add a button");
-            assertEquals(2, entries.size());
+            assertThat(entries).hasSize(2);
             assertEntry(entries.get(1), "Feature", "ui", "add a button");
         }
 
@@ -323,7 +327,7 @@ class CliffPackTest {
                     - fix(ui): correct padding
                     """
             );
-            assertEquals(3, entries.size());
+            assertThat(entries).hasSize(3);
             assertEntry(entries.get(1), "Feature", "ui", "add a button");
             assertEntry(entries.get(2), "Bug Fix", "ui", "correct padding");
         }
@@ -331,7 +335,7 @@ class CliffPackTest {
         @Test
         void emptyPackIsOnlyTheComprehensiveLine() {
             List<CliffEntry> entries = pipeline.process("pack: implemented large surface PR");
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Comprehensive", null, "implemented large surface PR");
         }
 
@@ -345,7 +349,7 @@ class CliffPackTest {
                     - style: reformat
                     """
             );
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Comprehensive", null, "implemented large surface PR");
         }
 
@@ -361,7 +365,7 @@ class CliffPackTest {
                     Signed-off-by: Example <example@example.com>
                     """
             );
-            assertEquals(3, entries.size());
+            assertThat(entries).hasSize(3);
             assertEntry(entries.get(0), "Comprehensive", null, "implemented large surface PR");
             assertEntry(entries.get(1), "Feature", "ui", "add a button");
             assertEntry(entries.get(2), "Co-authors", null, "Example <example@example.com>");
@@ -376,9 +380,9 @@ class CliffPackTest {
                     - feat(core): should not split
                     """
             );
-            assertEquals(1, entries.size());
-            assertEquals("Other", entries.getFirst().group());
-            assertFalse(entries.getFirst().message().contains("\n"));
+            assertThat(entries).hasSize(1);
+            assertThat(entries.getFirst().group()).isEqualTo("Other");
+            assertThat(entries.getFirst().message()).doesNotContain("\n");
         }
 
         @Test
@@ -390,7 +394,7 @@ class CliffPackTest {
                     - feature(world): generate structures
                     """
             );
-            assertEquals(2, entries.size());
+            assertThat(entries).hasSize(2);
             assertEntry(entries.get(1), "Feature", "world", "generate structures");
         }
 
@@ -411,7 +415,7 @@ class CliffPackTest {
                     Commit-Footer...
                     """
             );
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Feature", "example", "example multiline commit");
         }
 
@@ -424,9 +428,9 @@ class CliffPackTest {
                     Co-authored-by: Example <example@example.com>
                     """
             );
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Feature", "ui", "add a button");
-            assertTrue(entries.getFirst().message().contains("Co-authored-by: Example <example@example.com>"));
+            assertThat(entries.getFirst().message()).contains("Co-authored-by: Example <example@example.com>");
         }
 
         @Test
@@ -438,9 +442,9 @@ class CliffPackTest {
                     Signed-off-by: Example <example@example.com>
                     """
             );
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Feature", "ui", "add a button");
-            assertTrue(entries.getFirst().message().contains("Signed-off-by: Example <example@example.com>"));
+            assertThat(entries.getFirst().message()).contains("Signed-off-by: Example <example@example.com>");
         }
 
         @Test
@@ -452,43 +456,43 @@ class CliffPackTest {
                     Fixes #12
                     """
             );
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Bug Fix", "parser", "handle empty input");
-            assertTrue(entries.getFirst().message().contains("Fixes #12"));
-            assertFalse(entries.getFirst().message().contains("\n"));
+            assertThat(entries.getFirst().message()).contains("Fixes #12");
+            assertThat(entries.getFirst().message()).doesNotContain("\n");
         }
 
         @Test
         void stripsPullRequestNumberFromTheSubject() {
             List<CliffEntry> entries = pipeline.process("feat(args): add a flag (#389)");
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Feature", "args", "add a flag");
         }
 
         @Test
         void skipsChore() {
-            assertTrue(pipeline.process("chore: ignore me\n\nSome body").isEmpty());
+            assertThat(pipeline.process("chore: ignore me\n\nSome body")).isEmpty();
         }
 
         @Test
         void unconventionalSubjectGoesToOther() {
             List<CliffEntry> entries = pipeline.process("rewrite the world generator");
-            assertEquals(1, entries.size());
+            assertThat(entries).hasSize(1);
             assertEntry(entries.getFirst(), "Other", null, "rewrite the world generator");
         }
 
     }
 
     private static void assertEntry(CliffEntry entry, String group, String scope, String description) {
-        assertEquals(group, entry.group());
-        assertEquals(scope, entry.scope());
-        assertEquals(description, entry.description());
+        assertThat(entry.group()).isEqualTo(group);
+        assertThat(entry.scope()).isEqualTo(scope);
+        assertThat(entry.description()).isEqualTo(description);
     }
 
     private static void assertParser(Parser parser, String pattern, String group, boolean skip) {
-        assertEquals(pattern, parser.message().pattern());
-        assertEquals(group, parser.group());
-        assertEquals(skip, parser.skip());
+        assertThat(parser.message().pattern()).isEqualTo(pattern);
+        assertThat(parser.group()).isEqualTo(group);
+        assertThat(parser.skip()).isEqualTo(skip);
     }
 
     private static String blankToNull(String scope) {

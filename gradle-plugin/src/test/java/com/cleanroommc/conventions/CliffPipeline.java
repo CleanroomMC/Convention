@@ -1,11 +1,5 @@
 package com.cleanroommc.conventions;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.UncheckedIOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -32,7 +26,7 @@ final class CliffPipeline {
     }
 
     static CliffPipeline load() {
-        return parse(readCliffToml());
+        return parse(ConventionsFile.CLIFF.read());
     }
 
     static CliffPipeline parse(String toml) {
@@ -121,27 +115,6 @@ final class CliffPipeline {
             return "";
         }
         return GROUP_PREFIX.matcher(group).replaceFirst("").trim();
-    }
-
-    private static String readCliffToml() {
-        try (InputStream stream = CliffPipeline.class.getResourceAsStream("/resources/cliff.toml")) {
-            if (stream != null) {
-                return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
-        for (Path dir = Path.of("").toAbsolutePath(); dir != null; dir = dir.getParent()) {
-            Path candidate = dir.resolve("cliff.toml");
-            if (Files.isRegularFile(candidate)) {
-                try {
-                    return Files.readString(candidate);
-                } catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            }
-        }
-        throw new IllegalStateException("cliff.toml was not on the classpath or in a parent directory");
     }
 
     private static String section(String toml, String name) {
