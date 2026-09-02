@@ -12,7 +12,7 @@ on:
         type: string
         default: '**/build/libs/*.jar'
       cliff-config:
-        description: Path to the git-cliff configuration file, relative to the repository root or the Gradle project directory.
+        description: Path to a git-cliff configuration file, relative to the repository root or the Gradle project directory. Falls back to the conventions cliff.toml at this workflow's ref.
         type: string
         default: 'cliff.toml'
       java-version:
@@ -110,18 +110,26 @@ jobs:
         env:
           CLIFF_CONFIG: ${{ inputs.cliff-config }}
           GRADLE_DIR: ${{ steps.gradle.outputs.dir }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           set -euo pipefail
-          if [ -f "${GRADLE_DIR}/${CLIFF_CONFIG}" ]; then
-            echo "config=${GRADLE_DIR}/${CLIFF_CONFIG}" >> "$GITHUB_OUTPUT"
-            exit 0
+          for candidate in "${GRADLE_DIR}/${CLIFF_CONFIG}" "${CLIFF_CONFIG}"; do
+            if [ -f "${candidate}" ]; then
+              echo "config=${candidate}" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+          # No local override, so take the conventions file from the same ref this workflow was called at
+          slug="${WORKFLOW_REF%%/.github/*}"
+          ref="${WORKFLOW_REF##*@}"
+          ref="${ref#refs/heads/}"
+          ref="${ref#refs/tags/}"
+          url="https://raw.githubusercontent.com/${slug}/${ref}/cliff.toml"
+          if ! curl -fsSL "${url}" -o "${RUNNER_TEMP}/cliff.toml"; then
+            echo "::error::git-cliff config '${CLIFF_CONFIG}' was not found in '${GRADLE_DIR}' or at the repository root, and '${url}' could not be fetched. Commit a config and pass cliff-config."
+            exit 1
           fi
-          if [ -f "${CLIFF_CONFIG}" ]; then
-            echo "config=${CLIFF_CONFIG}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "::error::git-cliff config '${CLIFF_CONFIG}' was not found in '${GRADLE_DIR}' after Gradle ran, or at the repository root. Apply the conventions plugin so it unpacks cliff.toml, or pass cliff-config."
-          exit 1
+          echo "config=${RUNNER_TEMP}/cliff.toml" >> "$GITHUB_OUTPUT"
 
       - name: Generate release notes
         uses: orhun/git-cliff-action@f50e11560dce63f7c33227798f90b924471a88b5 # v4.8.0
