@@ -122,8 +122,3 @@ $RECYCLE.BIN/
 *.orig
 *.rej
 # <<< cleanroom-conventions
-
-# Unpacked by the plugin when this repo builds against itself
-gradle-plugin/checkstyle.xml
-gradle-plugin/formatj.toml
-gradle-plugin/cliff.toml

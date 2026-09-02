@@ -1,16 +1,12 @@
 package com.cleanroommc.conventions;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
+import java.nio.charset.StandardCharsets;
 import org.gradle.api.GradleException;
-import org.gradle.api.Project;
 
-public enum ConventionsFile {
+enum ConventionsFile {
 
     FORMAT_J("formatj.toml"),
     CHECKSTYLE("checkstyle.xml"),
@@ -24,24 +20,15 @@ public enum ConventionsFile {
         this.fileName = fileName;
     }
 
-    public String fileName() {
-        return fileName;
-    }
-
-    /**
-     * Extracts file from plugin jar into the repo's directory for tools to read.
-     */
-    File unpack(Project project) {
-        Path target = project.getLayout().getProjectDirectory().file(fileName).getAsFile().toPath();
+    String read() {
         try (InputStream stream = ConventionsFile.class.getResourceAsStream(RESOURCE_DIRECTORY + fileName)) {
             if (stream == null) {
                 throw new GradleException("Convention file " + fileName + " is missing from the conventions plugin jar");
             }
-            Files.copy(stream, target, StandardCopyOption.REPLACE_EXISTING);
+            return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new UncheckedIOException(e);
+            throw new UncheckedIOException("Cannot read convention file " + fileName + " from the conventions plugin jar", e);
         }
-        return target.toFile();
     }
 
     @Override

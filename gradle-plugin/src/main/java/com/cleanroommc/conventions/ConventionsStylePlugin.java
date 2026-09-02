@@ -28,13 +28,13 @@ public class ConventionsStylePlugin implements Plugin<Project> {
 
         // Apply FormatJ and its configuration
         plugins.apply(FormatJPlugin.class);
-        project.getExtensions().getByType(FormatJExtension.class).getStyleFile().set(ConventionsFile.FORMAT_J.unpack(project));
+        project.getExtensions().getByType(FormatJExtension.class).getStyle().set(ConventionsFile.FORMAT_J.read());
 
         // Apply Checkstyle and its configuration
         plugins.apply(CheckstylePlugin.class);
         CheckstyleExtension checkstyle = project.getExtensions().getByType(CheckstyleExtension.class);
-        checkstyle.setToolVersion(CHECKSTYLE_VERSION);
-        checkstyle.setConfigFile(ConventionsFile.CHECKSTYLE.unpack(project));
+        checkstyle.setToolVersion(ConventionsProperty.CHECKSTYLE_VERSION.get(project, CHECKSTYLE_VERSION));
+        checkstyle.setConfig(project.getResources().getText().fromString(ConventionsFile.CHECKSTYLE.read()));
 
         // ClearSkies expands star imports, FormatJ formats the lines it wrote, Checkstyle judges the result.
         tasks.named(FormatJPlugin.APPLY_TASK_NAME).configure(task -> task.mustRunAfter(ClearSkiesPlugin.APPLY_TASK_NAME));
