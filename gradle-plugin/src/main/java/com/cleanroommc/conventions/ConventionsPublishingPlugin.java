@@ -2,7 +2,6 @@ package com.cleanroommc.conventions;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.Callable;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 import org.gradle.api.artifacts.repositories.PasswordCredentials;
@@ -38,8 +37,6 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
     public void apply(Project project) {
         PluginManager plugins = project.getPluginManager();
 
-        ConventionsFile.CLIFF.unpack(project.getRootProject());
-
         project.getPlugins().withType(JavaPlugin.class, _ -> configureJavaPublishing(project));
         project.getPlugins().withType(MavenPublishPlugin.class, _ -> configurePublications(project));
         plugins.withPlugin(JAVA_GRADLE_PLUGIN_ID, _ -> configurePluginPublishing(project));
@@ -58,7 +55,7 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
                 return;
             }
             publishing.getPublications()
-                    .create(MAVEN_PUBLICATION, MavenPublication.class, publication -> publication.from(project.getComponents().getByName("java")));
+                    .register(MAVEN_PUBLICATION, MavenPublication.class, publication -> publication.from(project.getComponents().getByName("java")));
         });
     }
 
@@ -69,11 +66,11 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
 
         SigningExtension signing = project.getExtensions().getByType(SigningExtension.class);
         signing.setRequired(
-                (Callable<Boolean>) () -> project.getGradle()
-                        .getTaskGraph()
-                        .getAllTasks()
+                project.getGradle()
+                        .getStartParameter()
+                        .getTaskNames()
                         .stream()
-                        .anyMatch(task -> PUBLISH_PLUGINS_TASK.equals(task.getName()))
+                        .anyMatch(name -> PUBLISH_PLUGINS_TASK.equals(name) || name.endsWith(':' + PUBLISH_PLUGINS_TASK))
         );
         Provider<String> signingKey = project.getProviders().gradleProperty("signingKey");
         Provider<String> signingPassword = project.getProviders().gradleProperty("signingPassword");
@@ -86,7 +83,7 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
         PublishingExtension publishing = project.getExtensions().getByType(PublishingExtension.class);
         addCleanroomRepository(publishing);
 
-        Provider<String> fromProperty = ConventionsProperty.REPO_URL.map(project).map(ConventionsPublishingPlugin::canonicalHttpUrl);
+        Provider<String> fromProperty = ConventionsProperty.REPO_URL.provider(project).map(ConventionsPublishingPlugin::canonicalHttpUrl);
         Provider<String> fromGit = gitUpstreamUrl(project);
 
         Property<String> repositoryUrl = project.getObjects().property(String.class);
@@ -99,6 +96,10 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
             repositoryUrl.convention(fromProperty.orElse(fromGit).orElse(gradlePlugin.getVcsUrl().map(ConventionsPublishingPlugin::canonicalHttpUrl)));
             homepageUrl.convention(gradlePlugin.getWebsite().orElse(repositoryUrl));
         });
+
+        // The POM reads these once per field
+        repositoryUrl.finalizeValueOnRead();
+        homepageUrl.finalizeValueOnRead();
 
         publishing.getPublications()
                 .withType(MavenPublication.class)
