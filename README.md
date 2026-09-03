@@ -3,6 +3,8 @@ Cleanroom's Conventions. Here you can find how a Cleanroom's project is to behav
 
 Contains the following conventional files.
 
+- `LICENSE`
+- `HEADER`
 - `checkstyle.xml`
 - `formatj.toml`
 - `cliff.toml`
@@ -14,49 +16,110 @@ Contains the following conventional files.
 
 Published plugin IDs:
 
-| Plugin ID                                | Purpose                                                        |
-|------------------------------------------|----------------------------------------------------------------|
-| `com.cleanroommc.conventions`            | Applies every convention plugin                                |
-| `com.cleanroommc.conventions.base`       | Versioning, Java, encoding, & reproducible archive conventions |
-| `com.cleanroommc.conventions.style`      | Code formatting & Checkstyle conventions                       |
-| `com.cleanroommc.conventions.testing`    | JUnit, AssertJ & Mockito conventions                           |
-| `com.cleanroommc.conventions.publishing` | Maven & Gradle Plugin Portal publishing conventions            |
-| `com.cleanroommc.conventions.mod`        | CurseForge & Modrinth publishing conventions                   |
+| Plugin ID                                  | Purpose                                                        |
+|--------------------------------------------|----------------------------------------------------------------|
+| `com.cleanroommc.conventions.settings`     | Settings plugin: repositories and optional Foojay              |
+| `com.cleanroommc.conventions`              | Applies every project convention plugin                        |
+| `com.cleanroommc.conventions.base`         | Versioning, Java, encoding, & reproducible archive conventions |
+| `com.cleanroommc.conventions.license`      | Requires LICENSE to match CleanroomMC License Version 1.0      |
+| `com.cleanroommc.conventions.style`        | Code formatting & Checkstyle conventions                       |
+| `com.cleanroommc.conventions.testing`      | JUnit, AssertJ & Mockito conventions                           |
+| `com.cleanroommc.conventions.benchmarking` | JMH benchmarking suite in an isolated `benchmark` source set   |
+| `com.cleanroommc.conventions.publishing`   | Maven & Gradle Plugin Portal publishing conventions            |
+| `com.cleanroommc.conventions.mod`          | CurseForge & Modrinth publishing conventions                   |
+
+```groovy filename="settings.gradle"
+pluginManagement {
+    repositories {
+        maven {
+            url = 'https://maven.cleanroommc.com'
+        }
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'com.cleanroommc.conventions.settings' version '1.0.0'
+}
+```
 
 ```groovy filename="build.gradle"
 plugins {
     id 'java'
-    id 'com.cleanroommc.conventions' version '1.0.0'
+    id 'com.cleanroommc.conventions'
 }
 ```
+
+A `repositories { }` block in `build.gradle` is allowed and only appends. It cannot replace Maven Central, the Plugin Portal, or Cleanroom Maven.
 
 ### Properties
 
 All optional, set in `gradle.properties`.
 
-| Property                        | Default    | Behaviour                                       |
-|---------------------------------|------------|-------------------------------------------------|
-| `conventions.javaMajor`         | `25`       | Java toolchain language version                 |
-| `conventions.modPublishing`     | `false`    | Applies the mod conventions                     |
-| `conventions.repoUrl`           | git remote | Repository URL used for the POM `url` and `scm` |
-| `conventions.checkstyleVersion` | `14.0.0`   | Checkstyle version                              |
-| `conventions.junitVersion`      | `6.1.3`    | `org.junit:junit-bom` version                   |
-| `conventions.mockitoVersion`    | `5.23.0`   | Mockito version                                 |
-| `conventions.assertjVersion`    | `3.27.7`   | `org.assertj:assertj-bom` version               |
+| Property                        | Default    | Behaviour                                         |
+|---------------------------------|------------|---------------------------------------------------|
+| `conventions.javaMajor`         | `25`       | Java toolchain language version                   |
+| `conventions.provisionJava`     | `false`    | Settings plugin applies Foojay toolchain resolver |
+| `conventions.modPublishing`     | `false`    | Applies the mod conventions                       |
+| `conventions.benchmarking`      | `false`    | Applies the benchmarking conventions              |
+| `conventions.repoUrl`           | git remote | Repository URL used for the POM `url` and `scm`   |
+| `conventions.checkstyleVersion` | `14.0.0`   | Checkstyle version                                |
+| `conventions.junitVersion`      | `6.1.3`    | `org.junit:junit-bom` version                     |
+| `conventions.mockitoVersion`    | `5.23.0`   | Mockito version                                   |
+| `conventions.assertjVersion`    | `3.27.7`   | `org.assertj:assertj-bom` version                 |
+| `conventions.jmhVersion`        | `1.37`     | OpenJDK JMH version                               |
+| `conventions.jspecifyVersion`   | `1.0.0`    | `org.jspecify:jspecify` version                   |
 
 > [!IMPORTANT]
 > Cleanroom Versioning is applied by the base conventions and refuses to apply without `version`
 > and `versioning.stage` (one of `alpha`, `beta`, `rc`, `release`).
 > Both are required in every consuming project.
 
+### Extraction
+
+Gradle reads `checkstyle.xml`, `formatj.toml`, `cliff.toml`, `LICENSE` and `HEADER` from the plugin jar.
+Git, editors and git-cliff still need files on disk.
+`checkLicense` also reads `LICENSE` from the project directory or a parent directory, and every Java file has to start with `HEADER`.
+`extractConventions` writes them into the root project directory:
+
+- `LICENSE`, `HEADER`
+- `checkstyle.xml`, `formatj.toml`, `cliff.toml`
+- `.editorconfig`, `.gitattributes`
+- `.gitignore` (replaces the `# >>> cleanroom-conventions` region, keeps anything outside it)
+
+It is a manual task. Hook it from a project-specific setup task if you want it on a known name:
+
+```groovy filename="build.gradle"
+tasks.register('setup') {
+    dependsOn 'extractConventions'
+}
+```
+
+### Settings Conventions
+
+Applied from `settings.gradle`.
+
+- Maven Central, the Gradle Plugin Portal, and [Cleanroom Maven](https://maven.cleanroommc.com) are injected before the project buildscript runs, so a later `repositories { }` only appends.
+  - `com.cleanroommc`, `top.outlands`, `zone.rong`, `net.minecraftforge`, `de.oceanlabs.mcp` resolve from Cleanroom Maven.
+- Foojay toolchain resolver, only when `conventions.provisionJava = true`.
+
 ### Base Conventions
 
 - Applies `com.cleanroommc.versioning` gradle plugin.
   - Configures projects to follow Cleanroom's Versioning Conventions.
+- Default `group` is `com.cleanroommc` when the project has not set one.
 - Force UTF-8 encoding on ALL `JavaCompile`, `Javadoc` and `Test` tasks.
 - Mutes Javadoc's `missing` warnings, everything else in `-Xdoclint` stays on.
 - Java toolchain from `conventions.javaMajor`.
+- `org.jspecify:jspecify` as `compileOnly` on every source set.
+- IDEA module downloads sources and Javadoc.
+- Jar manifest `Implementation-*` and `Specification-*` match the POM identity (name, version, CleanroomMC).
 - Verifiable rebuilding of artifacts
+- Registers `extractConventions`. It is not attached to `build`, `check` or `assemble`.
+
+### License Conventions
+
+- `checkLicense` (attached to `check`) requires `LICENSE` in the project directory or a parent directory to match CleanroomMC License Version 1.0.
 
 ### Style Conventions
 
@@ -65,12 +128,16 @@ All optional, set in `gradle.properties`.
 - Applies Checkstyle with `checkstyle.xml`.
 
 The three run in a fixed order, since each one judges what the previous one wrote:
-- ClearSkies > FormatJ > Checkstyle.
+- ClearSkies > FormatJ > Checkstyle
+
+Checkstyle requires the CleanroomMC file header from `HEADER` as a Java block comment at the top of every `.java` file.
+
+Checkstyle warns when an imported `Nullable`, `NonNull`, `Nonnull`, `NotNull` or `CheckForNull` annotation does not come from `org.jspecify.annotations`. The advisory stays at import level so legacy or generated fully-qualified references do not block a build.
 
 > [!NOTE]
 > FormatJ ships an IntelliJ plugin that reads `formatj.toml`.
 >
-> Copy [this file](formatj.toml) to the root of the project and use the plugin to perform native formatting.
+> Run `extractConventions` (or copy [this file](formatj.toml) to the project root) and use the plugin to perform native formatting.
 
 ### Testing Conventions
 
@@ -78,6 +145,37 @@ The three run in a fixed order, since each one judges what the previous one wrot
 - `mockito-core` and `mockito-junit-jupiter`.
 - `org.assertj:assertj-bom`, `assertj-core` and `assertj-guava`.
 - `useJUnitPlatform()` on every `Test`.
+- Test logging prints passed, skipped and failed, with full exception traces.
+
+### Benchmarking Conventions
+
+Disabled by default. Enable it through the aggregate plugin in `gradle.properties`:
+
+```properties filename="gradle.properties"
+conventions.benchmarking = true
+```
+
+You can also apply `com.cleanroommc.conventions.benchmarking` directly. It creates an isolated `benchmark` source set rooted at `src/benchmark/java` and `src/benchmark/resources`, with OpenJDK JMH on its implementation and annotation processor classpaths. It can use production classes and dependencies, but does not inherit from `test` or run as part of `test`, `check` or `build`.
+
+Put JMH benchmarks under `src/benchmark/java` and add any benchmark-only libraries to `benchmarkImplementation`:
+
+```groovy filename="build.gradle"
+dependencies {
+    benchmarkImplementation 'org.example:benchmark-fixtures:1.0.0'
+}
+```
+
+Run all benchmarks:
+
+```shell
+./gradlew benchmark
+```
+
+Pass standard JMH arguments through the `JavaExec` task. For example:
+
+```shell
+./gradlew benchmark --args='MyBenchmark -wi 3 -i 5 -f 2'
+```
 
 ### Publishing Conventions
 
@@ -89,13 +187,15 @@ The three run in a fixed order, since each one judges what the previous one wrot
   - Description
   - Url
   - CleanroomMC organization
+  - License: CleanroomMC License Version 1.0
   - `scm` connections.
     - Repository URL comes from `conventions.repoUrl` fallback being git upstream remote
     - `gradlePlugin.vcsUrl` for plugin projects.
 - Creates a `maven` publication from the `java` component (if there is no existing `maven` publication)
   - Unless the project applies `java-gradle-plugin` (which brings its own `pluginMaven` publication)
-- For `java-gradle-plugin` projects: applies `com.gradle.plugin-publish` and `signing`.
-  - Signing is required only when `publishPlugins` is one of the requested tasks, and uses `signingKey`/`signingPassword`
+- For `java-gradle-plugin` projects: applies `com.gradle.plugin-publish`.
+- Signs every Maven publication when both `signingKey` and `signingPassword` are set.
+  - If either property is missing, signing is left off and publish tasks still run.
 
 - Nothing here writes `cliff.toml`. Only the `git-cliff` CLI reads it, so the release workflow fetches it from this repository at the ref the workflow was called at, unless the project ships its own.
 
@@ -135,3 +235,102 @@ conventions {
     }
 }
 ```
+
+## GitHub Actions
+
+Reusable workflows live in this repository. Pin the `@` ref to a tag (or a commit), which can be better than pinning to `@master` which tracks whatever is latest.
+
+This repository's own wrappers are [`.github/workflows/ci.yml`](.github/workflows/ci.yml) and [`.github/workflows/publish.yml`](.github/workflows/publish.yml). Other CleanroomMC projects should call the reusable files below.
+
+### Build
+
+[`.github/workflows/build.yml`](.github/workflows/build.yml) compiles, tests and uploads `**/build/libs`.
+
+```yaml filename=".github/workflows/ci.yml"
+name: CI
+
+on:
+  push:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, review_requested]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: CleanroomMC/Conventions/.github/workflows/build.yml@master
+    # with:
+    #   working-directory: gradle-plugin
+    #   java-version: '25'
+```
+
+| Input                | Default         | Purpose                                                                |
+|----------------------|-----------------|------------------------------------------------------------------------|
+| `working-directory`  | `.`             | Directory that contains `gradlew`, or a unique wrapper two levels down |
+| `artifact-path`      | `**/build/libs` | Paths uploaded after a successful build                                |
+| `if-no-files-found`  | `warn`          | `warn`, `error` or `ignore` when nothing matches                       |
+| `java-version`       | `25`            | Temurin JDK used to launch Gradle                                      |
+| `timeout-minutes`    | `15`            | Job timeout                                                            |
+| `cache-provider`     | `enhanced`      | `basic` (MIT) or `enhanced` (Gradle Terms of Use)                      |
+| `build-scan-publish` | `true`          | Publish build scans to `scans.gradle.com`                              |
+
+The workflow runs `./gradlew build -Pversioning.run=${{ github.run_number }}`. Draft PRs are skipped until they are marked ready for review.
+
+### Release
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds with `-Pversioning.publish`, generates release notes and `CHANGELOG.md` through git-cliff, then optionally publishes.
+
+```yaml filename=".github/workflows/publish.yml"
+name: Publish
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: read
+  pull-requests: read
+
+jobs:
+  release:
+    uses: CleanroomMC/Conventions/.github/workflows/release.yml@master
+    with:
+      publish-maven: true
+      publish-plugin-portal: false
+      publish-mods: false
+    secrets: inherit
+```
+
+A library typically enables `publish-maven`. A Gradle plugin also sets `publish-plugin-portal: true`. A mod sets `conventions.modPublishing = true` in Gradle and `publish-mods: true` here.
+
+| Input                   | Default               | Purpose                                                                   |
+|-------------------------|-----------------------|---------------------------------------------------------------------------|
+| `working-directory`     | `.`                   | Directory that contains `gradlew`                                         |
+| `artifact-path`         | `**/build/libs/*.jar` | Jars attached to the GitHub Release                                       |
+| `cliff-config`          | `cliff.toml`          | Local override. If missing, the workflow fetches this repo's `cliff.toml` |
+| `java-version`          | `25`                  | Temurin JDK used to launch Gradle                                         |
+| `timeout-minutes`       | `30`                  | Job timeout                                                               |
+| `cache-provider`        | `basic`               | Gradle User Home cache                                                    |
+| `publish-maven`         | `true`                | `publishAllPublicationsToCleanroomRepository`                             |
+| `publish-plugin-portal` | `false`               | `publishPlugins`                                                          |
+| `publish-mods`          | `false`               | `publishMods` (CurseForge / Modrinth)                                     |
+
+| Secret                  | Used when               |
+|-------------------------|-------------------------|
+| `MAVEN_NAME`            | `publish-maven`         |
+| `MAVEN_PASSWORD`        | `publish-maven`         |
+| `GRADLE_PUBLISH_KEY`    | `publish-plugin-portal` |
+| `GRADLE_PUBLISH_SECRET` | `publish-plugin-portal` |
+| `SIGNING_KEY`           | `publish-plugin-portal` |
+| `SIGNING_PASSWORD`      | `publish-plugin-portal` |
+| `CURSEFORGE_TOKEN`      | `publish-mods`          |
+| `MODRINTH_TOKEN`        | `publish-mods`          |
+
+`publish-mods` needs at least one of the two store tokens. A tag always creates a GitHub Release with `CHANGELOG.md` and the matched jars, even when every publish input is false.
+
+git-cliff uses the first of: the path in `cliff-config`, that file at the repository root, then `cliff.toml` from this Conventions ref.
