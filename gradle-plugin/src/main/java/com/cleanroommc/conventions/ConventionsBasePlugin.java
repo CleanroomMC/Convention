@@ -10,6 +10,7 @@
 
 package com.cleanroommc.conventions;
 
+import java.util.Map;
 import com.cleanroommc.versioning.gradle.CleanroomVersioningPlugin;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
@@ -19,18 +20,19 @@ import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.plugins.PluginManager;
 import org.gradle.api.tasks.TaskContainer;
 import org.gradle.api.tasks.bundling.AbstractArchiveTask;
+import org.gradle.api.tasks.bundling.Jar;
 import org.gradle.api.tasks.compile.JavaCompile;
 import org.gradle.api.tasks.javadoc.Javadoc;
 import org.gradle.api.tasks.testing.Test;
 import org.gradle.external.javadoc.CoreJavadocOptions;
 import org.gradle.jvm.toolchain.JavaLanguageVersion;
+import org.gradle.plugins.ide.idea.IdeaPlugin;
+import org.gradle.plugins.ide.idea.model.IdeaModel;
 
 /**
  * Base Conventions plugin.
  */
 public class ConventionsBasePlugin implements Plugin<Project> {
-
-    private static final String DEFAULT_JAVA_VERSION = "25";
 
     @Override
     public void apply(Project project) {
@@ -39,9 +41,14 @@ public class ConventionsBasePlugin implements Plugin<Project> {
         TaskContainer tasks = project.getTasks();
 
         ConventionsExtension.register(project);
+        ExtractConventionsTask.register(project);
 
         // Apply Cleanroom Versioning
         plugins.apply(CleanroomVersioningPlugin.class);
+
+        if (project.getGroup().toString().isEmpty()) {
+            project.setGroup(ConventionsDefaults.GROUP);
+        }
 
         // UTF-8 Encoding on all JavaCompile, Javadoc, Test tasks
         tasks.withType(JavaCompile.class).configureEach(task -> task.getOptions().setEncoding("UTF-8"));
@@ -53,20 +60,51 @@ public class ConventionsBasePlugin implements Plugin<Project> {
         });
 
         // Gets "conventions.javaMajor" and sets Java toolchain to it
-        project.getPlugins()
-                .withType(
-                        JavaPlugin.class,
-                        _ -> extensions.getByType(JavaPluginExtension.class)
-                                .getToolchain()
-                                .getLanguageVersion()
-                                .set(JavaLanguageVersion.of(ConventionsProperty.JAVA_VERSION.get(project, DEFAULT_JAVA_VERSION)))
-                );
+        project.getPlugins().withType(JavaPlugin.class, _ -> {
+            extensions.getByType(JavaPluginExtension.class).getToolchain().getLanguageVersion().set(JavaLanguageVersion.of(ConventionsProperty.JAVA_VERSION.get(project, ConventionsDefaults.JAVA_VERSION)));
+            configureJSpecify(project);
+        });
 
         // Verifiable rebuilds
         tasks.withType(AbstractArchiveTask.class).configureEach(task -> {
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
         });
+
+        tasks.withType(Jar.class).configureEach(jar -> configureManifest(project, jar));
+
+        plugins.apply(IdeaPlugin.class);
+        IdeaModel idea = extensions.getByType(IdeaModel.class);
+        idea.getModule().setDownloadSources(true);
+        idea.getModule().setDownloadJavadoc(true);
+    }
+
+    private void configureJSpecify(Project project) {
+        JavaPluginExtension java = project.getExtensions().getByType(JavaPluginExtension.class);
+        String coordinates = "org.jspecify:jspecify:" + ConventionsProperty.JSPECIFY_VERSION.get(project, ConventionsDefaults.JSPECIFY_VERSION);
+        java.getSourceSets().configureEach(sourceSet -> project.getDependencies().add(sourceSet.getCompileOnlyConfigurationName(), coordinates));
+    }
+
+    private void configureManifest(Project project, Jar jar) {
+        jar.getManifest()
+                .attributes(
+                        Map.of(
+                                "Implementation-Title",
+                                project.provider(project::getName),
+                                "Implementation-Version",
+                                project.provider(() -> project.getVersion().toString()),
+                                "Implementation-Vendor",
+                                ConventionsDefaults.ORGANIZATION_NAME,
+                                "Implementation-Vendor-Id",
+                                project.provider(() -> project.getGroup().toString()),
+                                "Specification-Title",
+                                project.provider(project::getName),
+                                "Specification-Version",
+                                project.provider(() -> project.getVersion().toString()),
+                                "Specification-Vendor",
+                                ConventionsDefaults.ORGANIZATION_NAME
+                        )
+                );
     }
 
 }

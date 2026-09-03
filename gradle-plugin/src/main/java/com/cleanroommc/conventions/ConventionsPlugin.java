@@ -21,9 +21,13 @@ public class ConventionsPlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
         project.getPluginManager().apply(ConventionsBasePlugin.class);
+        project.getPluginManager().apply(ConventionsLicensePlugin.class);
         project.getPluginManager().apply(ConventionsStylePlugin.class);
         project.getPluginManager().apply(ConventionsTestingPlugin.class);
         project.getPluginManager().apply(ConventionsPublishingPlugin.class);
+        if (ConventionsProperty.BENCHMARKING.provider(project).map(Boolean::parseBoolean).getOrElse(false)) {
+            project.getPluginManager().apply(ConventionsBenchmarkingPlugin.class);
+        }
         if (ConventionsProperty.MOD_PUBLISHING.provider(project).map(Boolean::parseBoolean).getOrElse(false)) {
             project.getPluginManager().apply(ConventionsModPlugin.class);
         }

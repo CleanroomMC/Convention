@@ -34,14 +34,9 @@ import org.gradle.process.ExecOutput;
  */
 public class ConventionsPublishingPlugin implements Plugin<Project> {
 
-    private static final String MAVEN_REPOSITORY_NAME = "Cleanroom";
-    private static final String MAVEN_REPOSITORY_URL = "https://maven.cleanroommc.com";
     private static final String MAVEN_PUBLICATION = "maven";
     private static final String JAVA_GRADLE_PLUGIN_ID = "java-gradle-plugin";
     private static final String PLUGIN_PUBLISH_ID = "com.gradle.plugin-publish";
-    private static final String PUBLISH_PLUGINS_TASK = "publishPlugins";
-    private static final String ORGANIZATION_NAME = "CleanroomMC";
-    private static final String ORGANIZATION_URL = "https://cleanroommc.com";
 
     @Override
     public void apply(Project project) {
@@ -70,28 +65,27 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
     }
 
     private void configurePluginPublishing(Project project) {
-        PluginManager plugins = project.getPluginManager();
-        plugins.apply(PLUGIN_PUBLISH_ID);
-        plugins.apply(SigningPlugin.class);
+        project.getPluginManager().apply(PLUGIN_PUBLISH_ID);
+    }
 
+    private void configureSigning(Project project, PublishingExtension publishing) {
+        project.getPluginManager().apply(SigningPlugin.class);
         SigningExtension signing = project.getExtensions().getByType(SigningExtension.class);
-        signing.setRequired(
-                project.getGradle()
-                        .getStartParameter()
-                        .getTaskNames()
-                        .stream()
-                        .anyMatch(name -> PUBLISH_PLUGINS_TASK.equals(name) || name.endsWith(':' + PUBLISH_PLUGINS_TASK))
-        );
         Provider<String> signingKey = project.getProviders().gradleProperty("signingKey");
         Provider<String> signingPassword = project.getProviders().gradleProperty("signingPassword");
-        if (signingKey.isPresent() && signingPassword.isPresent()) {
-            signing.useInMemoryPgpKeys(signingKey.get(), signingPassword.get());
+        boolean enabled = signingKey.isPresent() && signingPassword.isPresent();
+        signing.setRequired(enabled);
+        if (!enabled) {
+            return;
         }
+        signing.useInMemoryPgpKeys(signingKey.get(), signingPassword.get());
+        signing.sign(publishing.getPublications());
     }
 
     private void configurePublications(Project project) {
         PublishingExtension publishing = project.getExtensions().getByType(PublishingExtension.class);
         addCleanroomRepository(publishing);
+        configureSigning(project, publishing);
 
         Provider<String> fromProperty = ConventionsProperty.REPO_URL.provider(project).map(ConventionsPublishingPlugin::canonicalHttpUrl);
         Provider<String> fromGit = gitUpstreamUrl(project);
@@ -122,9 +116,15 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
             pom.getDescription().convention(project.provider(project::getDescription));
             pom.getUrl().convention(homepageUrl);
             pom.organization(organization -> {
-                organization.getName().convention(ORGANIZATION_NAME);
-                organization.getUrl().convention(ORGANIZATION_URL);
+                organization.getName().convention(ConventionsDefaults.ORGANIZATION_NAME);
+                organization.getUrl().convention(ConventionsDefaults.ORGANIZATION_URL);
             });
+            pom.licenses(licenses -> licenses.license(license -> {
+                license.getName().convention(ConventionsDefaults.LICENSE_NAME);
+                license.getUrl().convention(ConventionsDefaults.LICENSE_URL);
+                license.getDistribution().convention("repo");
+                license.getComments().convention(ConventionsDefaults.LICENSE_COMMENTS);
+            }));
             pom.scm(scm -> {
                 scm.getUrl().convention(repositoryUrl);
                 scm.getConnection().convention(repositoryUrl.map(url -> "scm:git:" + url + ".git"));
@@ -134,12 +134,12 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
     }
 
     private void addCleanroomRepository(PublishingExtension publishing) {
-        if (publishing.getRepositories().findByName(MAVEN_REPOSITORY_NAME) != null) {
+        if (publishing.getRepositories().findByName(ConventionsDefaults.MAVEN_REPOSITORY_NAME) != null) {
             return;
         }
         publishing.getRepositories().maven(repository -> {
-            repository.setName(MAVEN_REPOSITORY_NAME);
-            repository.setUrl(MAVEN_REPOSITORY_URL);
+            repository.setName(ConventionsDefaults.MAVEN_REPOSITORY_NAME);
+            repository.setUrl(ConventionsDefaults.MAVEN_REPOSITORY_URL);
             repository.credentials(PasswordCredentials.class);
             repository.getAuthentication().create("basic", BasicAuthentication.class);
         });

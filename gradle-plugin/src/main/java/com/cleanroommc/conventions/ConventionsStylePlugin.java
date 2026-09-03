@@ -30,6 +30,8 @@ public class ConventionsStylePlugin implements Plugin<Project> {
 
     @Override
     public void apply(Project project) {
+        ExtractConventionsTask.register(project);
+
         PluginManager plugins = project.getPluginManager();
         TaskContainer tasks = project.getTasks();
 

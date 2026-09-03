@@ -15,6 +15,9 @@ import org.gradle.api.Project;
 import org.gradle.api.artifacts.dsl.DependencyHandler;
 import org.gradle.api.plugins.JavaPlugin;
 import org.gradle.api.tasks.testing.Test;
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat;
+import org.gradle.api.tasks.testing.logging.TestLogEvent;
+import org.gradle.api.tasks.testing.logging.TestLoggingContainer;
 
 /**
  * Testing Conventions plugin.
@@ -49,7 +52,15 @@ public class ConventionsTestingPlugin implements Plugin<Project> {
         });
 
         // Force JUnit Platform on all Tests
-        project.getTasks().withType(Test.class).configureEach(Test::useJUnitPlatform);
+        project.getTasks().withType(Test.class).configureEach(test -> {
+            test.useJUnitPlatform();
+            TestLoggingContainer logging = test.getTestLogging();
+            logging.events(TestLogEvent.PASSED, TestLogEvent.SKIPPED, TestLogEvent.FAILED);
+            logging.setExceptionFormat(TestExceptionFormat.FULL);
+            logging.setShowExceptions(true);
+            logging.setShowCauses(true);
+            logging.setShowStackTraces(true);
+        });
     }
 
 }

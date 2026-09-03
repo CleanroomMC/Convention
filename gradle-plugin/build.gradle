@@ -18,15 +18,45 @@ dependencies {
     implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${clearskies}"
     implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${formatj}"
     implementation "com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:${pluginPublish}"
+    implementation "org.gradle.toolchains:foojay-resolver:${foojay}"
     // Curseforge and Modrinth appear in ConventionsExtension's public signatures.
     api "me.modmuss50.mod-publish-plugin:me.modmuss50.mod-publish-plugin.gradle.plugin:${modPublish}"
 
     testImplementation gradleTestKit()
 }
 
+def conventionRoot = layout.projectDirectory.dir('..')
+def packedConventionFiles = [
+        'checkstyle.xml': 'checkstyle.xml',
+        'formatj.toml': 'formatj.toml',
+        'cliff.toml': 'cliff.toml',
+        'LICENSE': 'LICENSE',
+        'HEADER': 'HEADER',
+        '.editorconfig': 'editorconfig',
+        '.gitattributes': 'gitattributes',
+        '.gitignore': 'gitignore',
+]
+def packedConventions = layout.buildDirectory.dir('packed-conventions')
+def packConventionFiles = tasks.register('packConventionFiles') {
+    packedConventionFiles.each { sourceName, destName ->
+        inputs.file(conventionRoot.file(sourceName))
+    }
+    outputs.dir(packedConventions)
+    doLast {
+        def destRoot = packedConventions.get().asFile.toPath()
+        java.nio.file.Files.createDirectories(destRoot)
+        packedConventionFiles.each { sourceName, destName ->
+            java.nio.file.Files.copy(
+                    conventionRoot.file(sourceName).asFile.toPath(),
+                    destRoot.resolve(destName),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+        }
+    }
+}
+
 tasks.named('processResources', ProcessResources) {
-    from(layout.projectDirectory.dir('..')) {
-        include 'checkstyle.xml', 'formatj.toml', 'cliff.toml'
+    from(packConventionFiles) {
         into 'resources'
     }
 }
@@ -47,6 +77,12 @@ gradlePlugin {
             displayName = 'Cleanroom Base Conventions'
             description = 'Sets base project conventions for CleanroomMC projects.'
         }
+        conventionsLicense {
+            id = "${group}.conventions.license"
+            implementationClass = "${group}.conventions.ConventionsLicensePlugin"
+            displayName = 'Cleanroom License Conventions'
+            description = 'Sets license conventions for CleanroomMC projects.'
+        }
         conventionsStyle {
             id = "${group}.conventions.style"
             implementationClass = "${group}.conventions.ConventionsStylePlugin"
@@ -59,6 +95,12 @@ gradlePlugin {
             displayName = 'Cleanroom Testing Conventions'
             description = 'Sets testing conventions for CleanroomMC projects.'
         }
+        conventionsBenchmarking {
+            id = "${group}.conventions.benchmarking"
+            implementationClass = "${group}.conventions.ConventionsBenchmarkingPlugin"
+            displayName = 'Cleanroom Benchmarking Conventions'
+            description = 'Sets JMH benchmarking conventions for CleanroomMC projects.'
+        }
         conventionsPublishing {
             id = "${group}.conventions.publishing"
             implementationClass = "${group}.conventions.ConventionsPublishingPlugin"
@@ -70,6 +112,12 @@ gradlePlugin {
             implementationClass = "${group}.conventions.ConventionsModPlugin"
             displayName = 'Cleanroom Mod Conventions'
             description = 'Sets mod conventions for CleanroomMC projects.'
+        }
+        conventionsSettings {
+            id = "${group}.conventions.settings"
+            implementationClass = "${group}.conventions.ConventionsSettingsPlugin"
+            displayName = 'Cleanroom Settings Conventions'
+            description = 'Sets settings conventions for CleanroomMC projects.'
         }
         configureEach {
             tags.set(['minecraft', 'conventions', '1.12', 'cleanroom'])

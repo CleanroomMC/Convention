@@ -12,6 +12,7 @@ package com.cleanroommc.conventions;
 
 import org.gradle.api.Project;
 import org.gradle.api.provider.Provider;
+import org.gradle.api.provider.ProviderFactory;
 
 enum ConventionsProperty {
 
@@ -21,7 +22,11 @@ enum ConventionsProperty {
     CHECKSTYLE_VERSION("conventions.checkstyleVersion"),
     JUNIT_VERSION("conventions.junitVersion"),
     MOCKITO_VERSION("conventions.mockitoVersion"),
-    ASSERTJ_VERSION("conventions.assertjVersion");
+    ASSERTJ_VERSION("conventions.assertjVersion"),
+    JMH_VERSION("conventions.jmhVersion"),
+    BENCHMARKING("conventions.benchmarking"),
+    JSPECIFY_VERSION("conventions.jspecifyVersion"),
+    PROVISION_JAVA("conventions.provisionJava");
 
     private final String key;
 
@@ -29,12 +34,20 @@ enum ConventionsProperty {
         this.key = key;
     }
 
+    Provider<String> provider(ProviderFactory providers) {
+        return providers.gradleProperty(key);
+    }
+
     Provider<String> provider(Project project) {
-        return project.getProviders().gradleProperty(key);
+        return provider(project.getProviders());
     }
 
     String get(Project project, String defaultValue) {
         return provider(project).getOrElse(defaultValue);
+    }
+
+    boolean flag(ProviderFactory providers, boolean defaultValue) {
+        return provider(providers).map(Boolean::parseBoolean).getOrElse(defaultValue);
     }
 
     @Override
