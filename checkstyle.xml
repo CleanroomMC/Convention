@@ -24,8 +24,21 @@
   <module name="LineEnding">
     <property name="lineEnding" value="lf"/>
   </module>
-
+  <!-- Wrapped HEADER. The plugin test fails if this drifts from the HEADER file. -->
+  <module name="Header">
+    <property name="header" value="/*\n * Copyright (c) 2021-present CleanroomMC contributors\n *\n * This file is licensed under the CleanroomMC License Version 1.0.\n * See the applicable LICENSE file in this directory or a parent directory\n * for the full licence terms.\n *\n * This is visible-source software and is not open-source software.\n */"/>
+  </module>
   <module name="TreeWalker">
+
+    <!-- Advisory: guide common nullness imports to JSpecify without cataloguing annotation packages. -->
+    <module name="RegexpSinglelineJava">
+      <property name="id" value="ForeignNullness"/>
+      <property name="format" value="^\s*import\s+(?!org\.jspecify\.annotations\.)(?:[\w$]+\.)+(?:Nullable|NonNull|Nonnull|NotNull|CheckForNull)\s*;"/>
+      <property name="maximum" value="0"/>
+      <property name="ignoreComments" value="true"/>
+      <property name="severity" value="warning"/>
+      <property name="message" value="Prefer org.jspecify.annotations for nullness."/>
+    </module>
 
     <module name="OuterTypeFilename"/>
     <module name="OneTopLevelClass"/>
@@ -70,7 +83,6 @@
       <property name="illegalClasses" value="org.junit.Assert, org.junit.jupiter.api.Assertions"/>
       <message key="import.illegal" value="Assert with AssertJ (org.assertj.core.api.Assertions), not {0}."/>
     </module>
-
     <!-- Naming -->
     <module name="PackageName">
       <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
