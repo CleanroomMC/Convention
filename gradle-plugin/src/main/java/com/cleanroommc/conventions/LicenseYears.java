@@ -42,10 +42,7 @@ final class LicenseYears {
 
     static Provider<LicenseYears> provider(Project project) {
         ConventionsExtension conventions = ConventionsExtension.register(project);
-        Path rootDirectory = project.getRootProject().getLayout().getProjectDirectory().getAsFile().toPath();
         Provider<Integer> current = project.provider(() -> Year.now().getValue());
-        Provider<Integer> persisted = current.map(value -> persistedBegin(rootDirectory, value));
-        conventions.getBeginFrom().convention(persisted);
         return current.zip(conventions.getBeginFrom(), (currentYear, begin) -> new LicenseYears(begin, currentYear));
     }
 
@@ -66,7 +63,7 @@ final class LicenseYears {
         return text.replace(YEAR_TOKEN, value());
     }
 
-    private static int persistedBegin(Path directory, int current) {
+    static int persistedBegin(Path directory, int current) {
         Path cursor = directory;
         while (cursor != null) {
             for (String fileName : new String[] { "HEADER", "LICENSE" }) {

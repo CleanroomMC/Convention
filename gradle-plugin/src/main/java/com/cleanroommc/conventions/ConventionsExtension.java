@@ -10,6 +10,8 @@
 
 package com.cleanroommc.conventions;
 
+import java.nio.file.Path;
+import java.time.Year;
 import javax.inject.Inject;
 import me.modmuss50.mpp.ModPublishExtension;
 import me.modmuss50.mpp.platforms.curseforge.Curseforge;
@@ -37,6 +39,8 @@ public abstract class ConventionsExtension {
         extension.getAssertjVersion().convention(ConventionsProperty.ASSERTJ_VERSION.provider(project).orElse(ConventionsDefaults.ASSERTJ_VERSION));
         extension.getJmhVersion().convention(ConventionsProperty.JMH_VERSION.provider(project).orElse(ConventionsDefaults.JMH_VERSION));
         extension.getJspecifyVersion().convention(ConventionsProperty.JSPECIFY_VERSION.provider(project).orElse(ConventionsDefaults.JSPECIFY_VERSION));
+        Path rootDirectory = project.getRootProject().getLayout().getProjectDirectory().getAsFile().toPath();
+        extension.getBeginFrom().convention(project.provider(() -> LicenseYears.persistedBegin(rootDirectory, Year.now().getValue())));
         return extension;
     }
 

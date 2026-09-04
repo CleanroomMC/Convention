@@ -21,7 +21,7 @@ class ConventionsFileTest {
     @Test
     void javaHeaderWrapsTheHeaderFile() {
         int current = Year.now().getValue();
-        assertThat(ConventionsFile.javaHeader()).isEqualTo(
+        assertThat(LicenseMode.VISIBLE.javaHeader(LicenseYears.current())).isEqualTo(
                 """
                 /*
                  * Copyright (c) %d CleanroomMC contributors

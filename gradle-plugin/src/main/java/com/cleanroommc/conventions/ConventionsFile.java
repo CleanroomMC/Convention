@@ -53,10 +53,6 @@ enum ConventionsFile {
         return mergeMarkedRegion;
     }
 
-    static String javaHeader() {
-        return LicenseMode.VISIBLE.javaHeader(LicenseYears.current());
-    }
-
     static String checkstyle(LicenseMode license, LicenseYears years) {
         String header = license.javaHeader(years)
                 .replace("&", "&amp;")

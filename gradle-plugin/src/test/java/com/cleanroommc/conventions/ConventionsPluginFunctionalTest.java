@@ -746,7 +746,7 @@ class ConventionsPluginFunctionalTest {
     }
 
     private static String javaSource(String body) {
-        return ConventionsFile.javaHeader() + "\n\n" + body;
+        return javaSource(LicenseMode.VISIBLE, body);
     }
 
     private static String javaSource(LicenseMode license, String body) {
