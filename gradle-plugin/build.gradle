@@ -15,18 +15,10 @@ repositories {
     gradlePluginPortal()
 }
 
+ext.conventionsPluginDir = '.'
+apply from: "${conventionsPluginDir}/gradle/conventions-sources.gradle"
+
 dependencies {
-    compileOnly "org.jspecify:jspecify:${jspecify}"
-
-    implementation "com.cleanroommc.versioning:com.cleanroommc.versioning.gradle.plugin:${versioningPlugin}"
-    implementation "com.cleanroommc.tokenenvoy:com.cleanroommc.tokenenvoy.gradle.plugin:${tokenEnvoy}"
-    implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${clearskies}"
-    implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${formatj}"
-    implementation "com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:${pluginPublish}"
-    implementation "org.gradle.toolchains:foojay-resolver:${foojay}"
-    // Curseforge and Modrinth appear in ConventionsExtension's public signatures.
-    api "me.modmuss50.mod-publish-plugin:me.modmuss50.mod-publish-plugin.gradle.plugin:${modPublish}"
-
     testImplementation gradleTestKit()
 }
 
@@ -37,38 +29,6 @@ tasks.named('checkLicense') {
     expected.set(providers.fileContents(conventionRoot.file('LICENSE')).asText)
 }
 
-def packedManifestFile = layout.projectDirectory.file('packed-conventions.properties')
-def packedManifest = new Properties()
-packedManifestFile.asFile.withInputStream { packedManifest.load(it) }
-def packedConventions = layout.buildDirectory.dir('packed-conventions')
-def packConventionFiles = tasks.register('packConventionFiles') {
-    inputs.file(packedManifestFile)
-    packedManifest.each { sourceName, destName ->
-        inputs.file(conventionRoot.file(sourceName))
-    }
-    outputs.dir(packedConventions)
-    doLast {
-        def destRoot = packedConventions.get().asFile
-        destRoot.deleteDir()
-        java.nio.file.Files.createDirectories(destRoot.toPath())
-        packedManifest.each { sourceName, destName ->
-            def destination = destRoot.toPath().resolve(destName)
-            java.nio.file.Files.createDirectories(destination.parent)
-            java.nio.file.Files.copy(
-                    conventionRoot.file(sourceName).asFile.toPath(),
-                    destination,
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
-            )
-        }
-    }
-}
-
-tasks.named('processResources', ProcessResources) {
-    from(packConventionFiles) {
-        into 'resources'
-    }
-}
-
 gradlePlugin {
     website = 'https://github.com/CleanroomMC/Conventions'
     vcsUrl = 'https://github.com/CleanroomMC/Conventions.git'
@@ -76,7 +36,7 @@ gradlePlugin {
         conventions {
             id = "${group}.conventions"
             implementationClass = "${group}.conventions.ConventionsPlugin"
-            displayName = 'Conventions'
+            displayName = 'Cleanroom Conventions'
             description = 'Sets project conventions for CleanroomMC projects.'
         }
         conventionsBase {
@@ -124,11 +84,11 @@ gradlePlugin {
         conventionsSettings {
             id = "${group}.conventions.settings"
             implementationClass = "${group}.conventions.ConventionsSettingsPlugin"
-            displayName = 'Cleanroom Settings Conventions'
+            displayName = 'Cleanroom Conventions Settings'
             description = 'Sets settings conventions for CleanroomMC projects.'
         }
         configureEach {
-            tags.set(['minecraft', 'conventions', '1.12', 'cleanroom'])
+            tags.set(['minecraft', 'conventions', '1.12', 'cleanroom', 'format', ''])
             compatibility {
                 features {
                     configurationCache = true

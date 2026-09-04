@@ -5,28 +5,16 @@ plugins {
 // Bootstrap build so the conventions plugin can be applied to its own build.
 // It compiles the exact same sources as the published plugin.
 
-def pluginProperties = new Properties()
-file('../gradle.properties').withInputStream { pluginProperties.load(it) }
-
-java {
-    toolchain.languageVersion = JavaLanguageVersion.of(25)
-}
-
 repositories {
     mavenCentral()
     gradlePluginPortal()
 }
 
-dependencies {
-    compileOnly "org.jspecify:jspecify:${pluginProperties['jspecify']}"
+ext.conventionsPluginDir = '..'
+apply from: "${conventionsPluginDir}/gradle/conventions-sources.gradle"
 
-    implementation "com.cleanroommc.versioning:com.cleanroommc.versioning.gradle.plugin:${pluginProperties['versioningPlugin']}"
-    implementation "com.cleanroommc.tokenenvoy:com.cleanroommc.tokenenvoy.gradle.plugin:${pluginProperties['tokenEnvoy']}"
-    implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${pluginProperties['clearskies']}"
-    implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${pluginProperties['formatj']}"
-    implementation "com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:${pluginProperties['pluginPublish']}"
-    implementation "org.gradle.toolchains:foojay-resolver:${pluginProperties['foojay']}"
-    api "me.modmuss50.mod-publish-plugin:me.modmuss50.mod-publish-plugin.gradle.plugin:${pluginProperties['modPublish']}"
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(conventionVersions['conventions.javaMajor'] as int)
 }
 
 sourceSets.main.java.srcDirs = ['../src/main/java']
@@ -35,43 +23,9 @@ tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
 }
 
-def conventionRoot = layout.projectDirectory.dir('../..')
-def packedManifestFile = layout.projectDirectory.file('../packed-conventions.properties')
-def packedManifest = new Properties()
-packedManifestFile.asFile.withInputStream { packedManifest.load(it) }
-def packedConventions = layout.buildDirectory.dir('packed-conventions')
-def packConventionFiles = tasks.register('packConventionFiles') {
-    inputs.file(packedManifestFile)
-    packedManifest.each { sourceName, destName ->
-        inputs.file(conventionRoot.file(sourceName))
-    }
-    outputs.dir(packedConventions)
-    doLast {
-        def destRoot = packedConventions.get().asFile
-        destRoot.deleteDir()
-        java.nio.file.Files.createDirectories(destRoot.toPath())
-        packedManifest.each { sourceName, destName ->
-            def destination = destRoot.toPath().resolve(destName)
-            java.nio.file.Files.createDirectories(destination.parent)
-            java.nio.file.Files.copy(
-                    conventionRoot.file(sourceName).asFile.toPath(),
-                    destination,
-                    java.nio.file.StandardCopyOption.REPLACE_EXISTING
-            )
-        }
-    }
-}
-
-tasks.named('processResources', ProcessResources) {
-    from(packConventionFiles) {
-        into 'resources'
-    }
-}
-
 gradlePlugin {
     plugins {
         conventions {
-            // Distinct id from the published one, so plugin resolution is never ambiguous.
             id = 'com.cleanroommc.conventions.bootstrap'
             implementationClass = 'com.cleanroommc.conventions.ConventionsPlugin'
         }

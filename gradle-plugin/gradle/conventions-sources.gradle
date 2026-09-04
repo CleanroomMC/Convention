@@ -1,0 +1,61 @@
+// Shared by gradle-plugin/build.gradle and gradle-plugin/build-logic/build.gradle.
+
+def pluginDir = layout.projectDirectory.dir(conventionsPluginDir)
+def conventionRoot = pluginDir.dir('..')
+
+// build-logic is a separate build, so it does not inherit these as project properties.
+def versions = new Properties()
+pluginDir.file('gradle.properties').asFile.withInputStream { versions.load(it) }
+ext.conventionVersions = versions
+
+dependencies {
+    compileOnly "org.jspecify:jspecify:${versions['jspecify']}"
+
+    implementation "com.cleanroommc.versioning:com.cleanroommc.versioning.gradle.plugin:${versions['versioningPlugin']}"
+    implementation "com.cleanroommc.tokenenvoy:com.cleanroommc.tokenenvoy.gradle.plugin:${versions['tokenEnvoy']}"
+    implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${versions['clearskies']}"
+    implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${versions['formatj']}"
+    implementation "com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:${versions['pluginPublish']}"
+    implementation "org.gradle.toolchains:foojay-resolver:${versions['foojay']}"
+    // Curseforge and Modrinth appear in ConventionsExtension's public signatures.
+    api "me.modmuss50.mod-publish-plugin:me.modmuss50.mod-publish-plugin.gradle.plugin:${versions['modPublish']}"
+}
+
+def packedManifest = new Properties()
+pluginDir.file('packed-conventions.properties').asFile.withInputStream { packedManifest.load(it) }
+def packedConventions = layout.buildDirectory.dir('packed-conventions')
+def packConventionFiles = tasks.register('packConventionFiles') {
+    def sources = packedManifest.collectEntries { sourceName, destName ->
+        [(destName as String): conventionRoot.file(sourceName as String)]
+    }
+    inputs.files(sources.values()).withPropertyName('conventionFiles')
+    outputs.dir(packedConventions).withPropertyName('packedConventions')
+    // Gradle does not notice a foreign file added to the output directory
+    def expectedPaths = sources.keySet()
+    outputs.upToDateWhen {
+        def destRoot = packedConventions.get().asFile
+        if (!destRoot.directory) {
+            return false
+        }
+        def actualPaths = [] as Set
+        destRoot.eachFileRecurse(groovy.io.FileType.FILES) { file ->
+            actualPaths << destRoot.toPath().relativize(file.toPath()).toString().replace('\\', '/')
+        }
+        actualPaths == expectedPaths
+    }
+    doLast {
+        def destRoot = packedConventions.get().asFile.toPath()
+        destRoot.toFile().deleteDir()
+        sources.each { destName, source ->
+            def destination = destRoot.resolve(destName)
+            java.nio.file.Files.createDirectories(destination.parent)
+            java.nio.file.Files.copy(source.asFile.toPath(), destination)
+        }
+    }
+}
+
+tasks.named('processResources', ProcessResources) {
+    from(packConventionFiles) {
+        into 'resources'
+    }
+}
