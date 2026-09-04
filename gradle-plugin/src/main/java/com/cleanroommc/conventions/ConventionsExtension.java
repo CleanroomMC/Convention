@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-present CleanroomMC contributors
+ * Copyright (c) 2021-2026 CleanroomMC contributors
  *
  * This file is licensed under the CleanroomMC License Version 1.0.
  * See the applicable LICENSE file in this directory or a parent directory
@@ -51,6 +51,8 @@ public abstract class ConventionsExtension {
     public abstract Property<String> getJmhVersion();
 
     public abstract Property<String> getJspecifyVersion();
+
+    public abstract Property<Integer> getBeginFrom();
 
     public ModsExtension getMods() {
         return ((ExtensionAware) this).getExtensions().getByType(ModsExtension.class);

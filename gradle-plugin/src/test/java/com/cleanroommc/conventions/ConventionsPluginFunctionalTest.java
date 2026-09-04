@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-present CleanroomMC contributors
+ * Copyright (c) 2021-2026 CleanroomMC contributors
  *
  * This file is licensed under the CleanroomMC License Version 1.0.
  * See the applicable LICENSE file in this directory or a parent directory
@@ -14,6 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Year;
 import org.gradle.testkit.runner.BuildResult;
 import org.gradle.testkit.runner.GradleRunner;
 import org.junit.jupiter.api.Test;
@@ -99,9 +100,69 @@ class ConventionsPluginFunctionalTest {
 
         run("extractConventions");
 
-        assertThat(Files.readString(projectDir.resolve("LICENSE"))).isEqualTo(license.licenseText());
-        assertThat(Files.readString(projectDir.resolve("HEADER"))).isEqualTo(license.headerText());
+        LicenseYears years = LicenseYears.current();
+        assertThat(Files.readString(projectDir.resolve("LICENSE"))).isEqualTo(license.licenseText(years));
+        assertThat(Files.readString(projectDir.resolve("HEADER"))).isEqualTo(license.headerText(years));
+        assertThat(Files.readString(projectDir.resolve("LICENSE"))).doesNotContain("@YEAR@");
+        assertThat(Files.readString(projectDir.resolve("HEADER"))).doesNotContain("@YEAR@");
         assertThat(Files.readString(projectDir.resolve("checkstyle.xml"))).doesNotContain("@LICENSE_HEADER@");
+    }
+
+    @Test
+    void beginFromSetsTheCopyrightYearRange() throws IOException {
+        int current = Year.now().getValue();
+        project("id 'java'\n    id 'com.cleanroommc.conventions'", "conventions { beginFrom = 2001 }");
+
+        run("extractConventions");
+
+        assertThat(Files.readString(projectDir.resolve("HEADER"))).contains("Copyright (c) 2001-" + current + " CleanroomMC contributors");
+        assertThat(Files.readString(projectDir.resolve("LICENSE"))).contains("Copyright © 2001-" + current + " CleanroomMC contributors");
+    }
+
+    @Test
+    void extractionPreservesThePreviousYearAsTheBeginning() throws IOException {
+        int current = Year.now().getValue();
+        int previous = current - 1;
+        project("id 'java'\n    id 'com.cleanroommc.conventions'", "");
+        Files.writeString(projectDir.resolve("HEADER"), LicenseMode.VISIBLE.headerText(LicenseYears.of(previous, previous)));
+
+        run("extractConventions");
+
+        assertThat(Files.readString(projectDir.resolve("HEADER"))).contains("Copyright (c) " + previous + "-" + current + " CleanroomMC contributors");
+        assertThat(Files.readString(projectDir.resolve("LICENSE"))).contains("Copyright © " + previous + "-" + current + " CleanroomMC contributors");
+    }
+
+    @Test
+    void extractionPreservesAnExistingYearRange() throws IOException {
+        int current = Year.now().getValue();
+        int begin = current - 2;
+        project("id 'java'\n    id 'com.cleanroommc.conventions'", "");
+        Files.writeString(projectDir.resolve("HEADER"), LicenseMode.VISIBLE.headerText(LicenseYears.of(begin, current - 1)));
+
+        run("extractConventions");
+
+        assertThat(Files.readString(projectDir.resolve("HEADER"))).contains("Copyright (c) " + begin + "-" + current + " CleanroomMC contributors");
+    }
+
+    @Test
+    void extractionFindsTheBeginningYearInAParentDirectory() throws IOException {
+        int current = Year.now().getValue();
+        int begin = current - 2;
+        Path parent = projectDir;
+        projectDir = Files.createDirectory(parent.resolve("consumer"));
+        project("id 'java'\n    id 'com.cleanroommc.conventions'", "");
+        Files.writeString(parent.resolve("HEADER"), LicenseMode.VISIBLE.headerText(LicenseYears.of(begin, current - 1)));
+
+        run("extractConventions");
+
+        assertThat(Files.readString(projectDir.resolve("HEADER"))).contains("Copyright (c) " + begin + "-" + current + " CleanroomMC contributors");
+    }
+
+    @Test
+    void beginFromRejectsAFutureYear() throws IOException {
+        int future = Year.now().getValue() + 1;
+        project("id 'java'\n    id 'com.cleanroommc.conventions'", "conventions { beginFrom = " + future + " }");
+        assertThat(runAndFail("extractConventions").getOutput()).contains("beginFrom must not be later than the current year");
     }
 
     @Test
@@ -623,7 +684,7 @@ class ConventionsPluginFunctionalTest {
     void checkLicensePassesWhenTheSelectedLicenseMatches(LicenseMode license) throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions.license'", "");
         property("license = " + license.propertyValue());
-        Files.writeString(projectDir.resolve("LICENSE"), license.licenseText());
+        Files.writeString(projectDir.resolve("LICENSE"), license.licenseText(LicenseYears.current()));
         assertThat(run("checkLicense").getOutput()).contains("BUILD SUCCESSFUL");
     }
 
@@ -670,7 +731,7 @@ class ConventionsPluginFunctionalTest {
     }
 
     private static String javaSource(LicenseMode license, String body) {
-        return license.javaHeader() + "\n\n" + body;
+        return license.javaHeader(LicenseYears.current()) + "\n\n" + body;
     }
 
     private static String printToolchain() {

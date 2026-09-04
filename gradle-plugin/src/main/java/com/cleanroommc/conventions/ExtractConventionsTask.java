@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-present CleanroomMC contributors
+ * Copyright (c) 2021-2026 CleanroomMC contributors
  *
  * This file is licensed under the CleanroomMC License Version 1.0.
  * See the applicable LICENSE file in this directory or a parent directory
@@ -21,6 +21,7 @@ import org.gradle.api.Project;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.MapProperty;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.provider.SetProperty;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
@@ -44,19 +45,24 @@ public abstract class ExtractConventionsTask extends DefaultTask {
             return;
         }
         LicenseMode license = LicenseMode.from(project);
+        Provider<LicenseYears> years = LicenseYears.provider(project);
         project.getTasks().register(NAME, ExtractConventionsTask.class, task -> {
             task.setGroup("conventions");
             task.setDescription("Writes convention files into the project directory. Not attached to build, check or assemble.");
             task.getDestinationDirectory().convention(project.getRootProject().getLayout().getProjectDirectory());
             for (ConventionsFile file : ConventionsFile.values()) {
-                task.getContents().put(file.fileName(), file == ConventionsFile.CHECKSTYLE ? ConventionsFile.checkstyle(license) : file.read());
+                if (file == ConventionsFile.CHECKSTYLE) {
+                    task.getContents().put(file.fileName(), years.map(value -> ConventionsFile.checkstyle(license, value)));
+                } else {
+                    task.getContents().put(file.fileName(), file.read());
+                }
                 if (file.mergeMarkedRegion()) {
                     task.getMergedPaths().add(file.fileName());
                 }
                 task.getOutputFiles().from(task.getDestinationDirectory().file(file.fileName()));
             }
-            task.getContents().put("LICENSE", license.licenseText());
-            task.getContents().put("HEADER", license.headerText());
+            task.getContents().put("LICENSE", years.map(license::licenseText));
+            task.getContents().put("HEADER", years.map(license::headerText));
             task.getOutputFiles().from(task.getDestinationDirectory().file("LICENSE"));
             task.getOutputFiles().from(task.getDestinationDirectory().file("HEADER"));
         });

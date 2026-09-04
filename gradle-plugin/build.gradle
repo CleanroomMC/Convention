@@ -6,6 +6,10 @@ plugins {
 group = 'com.cleanroommc'
 base.archivesName = 'conventions'
 
+conventions {
+    beginFrom = 2021
+}
+
 repositories {
     mavenCentral()
     gradlePluginPortal()

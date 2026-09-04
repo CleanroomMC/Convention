@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-present CleanroomMC contributors
+ * Copyright (c) 2021-2026 CleanroomMC contributors
  *
  * This file is licensed under the CleanroomMC License Version 1.0.
  * See the applicable LICENSE file in this directory or a parent directory
@@ -19,6 +19,7 @@ import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.Property;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.TaskAction;
@@ -38,10 +39,11 @@ public abstract class CheckLicenseTask extends DefaultTask {
             return;
         }
         LicenseMode license = LicenseMode.from(project);
+        Provider<LicenseYears> years = LicenseYears.provider(project);
         project.getTasks().register(NAME, CheckLicenseTask.class, task -> {
             task.setGroup(LifecycleBasePlugin.VERIFICATION_GROUP);
             task.setDescription("Requires LICENSE in the project directory or a parent directory to match the configured license mode.");
-            task.getExpected().convention(license.licenseText());
+            task.getExpected().convention(years.map(license::licenseText));
             task.getExpectedName().convention(license.displayName());
             task.getStartDirectory().convention(project.getRootProject().getLayout().getProjectDirectory());
         });

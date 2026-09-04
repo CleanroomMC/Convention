@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-present CleanroomMC contributors
+ * Copyright (c) 2021-2026 CleanroomMC contributors
  *
  * This file is licensed under the CleanroomMC License Version 1.0.
  * See the applicable LICENSE file in this directory or a parent directory
@@ -16,7 +16,9 @@ import org.gradle.api.plugins.PluginManager;
 import org.gradle.api.plugins.quality.Checkstyle;
 import org.gradle.api.plugins.quality.CheckstyleExtension;
 import org.gradle.api.plugins.quality.CheckstylePlugin;
+import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskContainer;
+import org.gradle.api.tasks.TaskProvider;
 import zone.rong.clearskies.gradle.ClearSkiesPlugin;
 import zone.rong.formatj.gradle.FormatJExtension;
 import zone.rong.formatj.gradle.FormatJPlugin;
@@ -32,6 +34,7 @@ public class ConventionsStylePlugin implements Plugin<Project> {
     public void apply(Project project) {
         ExtractConventionsTask.register(project);
         LicenseMode license = LicenseMode.from(project);
+        Provider<LicenseYears> years = LicenseYears.provider(project);
 
         PluginManager plugins = project.getPluginManager();
         TaskContainer tasks = project.getTasks();
@@ -47,7 +50,16 @@ public class ConventionsStylePlugin implements Plugin<Project> {
         plugins.apply(CheckstylePlugin.class);
         CheckstyleExtension checkstyle = project.getExtensions().getByType(CheckstyleExtension.class);
         checkstyle.setToolVersion(ConventionsProperty.CHECKSTYLE_VERSION.get(project, CHECKSTYLE_VERSION));
-        checkstyle.setConfig(project.getResources().getText().fromString(ConventionsFile.checkstyle(license)));
+        TaskProvider<GenerateCheckstyleConfigTask> generateConfig = tasks.register(
+                GenerateCheckstyleConfigTask.NAME,
+                GenerateCheckstyleConfigTask.class,
+                task -> {
+                    task.setDescription("Generates Checkstyle configuration for the selected license and copyright years.");
+                    task.getContents().convention(years.map(value -> ConventionsFile.checkstyle(license, value)));
+                    task.getOutputFile().convention(project.getLayout().getBuildDirectory().file("conventions/checkstyle.xml"));
+                }
+        );
+        checkstyle.setConfig(project.getResources().getText().fromFile(generateConfig.flatMap(GenerateCheckstyleConfigTask::getOutputFile)));
 
         // ClearSkies expands star imports, FormatJ formats the lines it wrote, Checkstyle judges the result.
         tasks.named(FormatJPlugin.APPLY_TASK_NAME).configure(task -> task.mustRunAfter(ClearSkiesPlugin.APPLY_TASK_NAME));

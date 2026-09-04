@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-present CleanroomMC contributors
+ * Copyright (c) 2021-2026 CleanroomMC contributors
  *
  * This file is licensed under the CleanroomMC License Version 1.0.
  * See the applicable LICENSE file in this directory or a parent directory
@@ -54,11 +54,11 @@ enum ConventionsFile {
     }
 
     static String javaHeader() {
-        return LicenseMode.VISIBLE.javaHeader();
+        return LicenseMode.VISIBLE.javaHeader(LicenseYears.current());
     }
 
-    static String checkstyle(LicenseMode license) {
-        String header = license.javaHeader()
+    static String checkstyle(LicenseMode license, LicenseYears years) {
+        String header = license.javaHeader(years)
                 .replace("&", "&amp;")
                 .replace("\"", "&quot;")
                 .replace("<", "&lt;")

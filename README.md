@@ -21,7 +21,7 @@ Published plugin IDs:
 | `com.cleanroommc.conventions.settings`     | Settings plugin: repositories and optional Foojay              |
 | `com.cleanroommc.conventions`              | Applies every project convention plugin                        |
 | `com.cleanroommc.conventions.base`         | Versioning, Java, encoding, & reproducible archive conventions |
-| `com.cleanroommc.conventions.license`      | Requires LICENSE to match CleanroomMC License Version 1.0      |
+| `com.cleanroommc.conventions.license`      | Requires LICENSE to match the selected license conventions    |
 | `com.cleanroommc.conventions.style`        | Code formatting & Checkstyle conventions                       |
 | `com.cleanroommc.conventions.testing`      | JUnit, AssertJ & Mockito conventions                           |
 | `com.cleanroommc.conventions.benchmarking` | JMH benchmarking suite in an isolated `benchmark` source set   |
@@ -65,10 +65,11 @@ These values are read before the project DSL, so they remain Gradle properties:
 | `conventions.benchmarking`      | `false`    | Applies the benchmarking conventions              |
 | `conventions.checkstyleVersion` | `14.0.0`   | Checkstyle version                                |
 
-Project-level dependency and publishing values belong to the managed `conventions` extension:
+Project-level dependency, publishing and copyright values belong to the managed `conventions` extension:
 
 ```groovy filename="build.gradle"
 conventions {
+    beginFrom = 2021
     repositoryUrl = 'https://github.com/CleanroomMC/example'
     junitVersion = '6.1.3'
     mockitoVersion = '5.23.0'
@@ -138,6 +139,8 @@ Set one license mode in `gradle.properties`:
 | `visible`       | CleanroomMC License Version 1.0              | Custom           |
 
 `visible` is the default. The selected mode controls `checkLicense`, `extractConventions`, the Java header required by Checkstyle, and Maven POM license metadata. `checkLicense` is attached to `check` and accepts a matching `LICENSE` in the project directory or a parent directory.
+
+`conventions.beginFrom` optionally sets the first copyright year. The generated notice uses only the current year when it is unset and no existing notice is present. With an earlier starting year, it uses `StartingYear-CurrentYear`, for example `2021-2026`. When the year changes, `extractConventions` reads the starting year already stored in `HEADER` or `LICENSE`, preserves it, and advances the ending year. An explicit `beginFrom` value takes precedence.
 
 ### Style Conventions
 
