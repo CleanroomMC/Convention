@@ -19,6 +19,7 @@ dependencies {
     compileOnly "org.jspecify:jspecify:${jspecify}"
 
     implementation "com.cleanroommc.versioning:com.cleanroommc.versioning.gradle.plugin:${versioningPlugin}"
+    implementation "com.cleanroommc.tokenenvoy:com.cleanroommc.tokenenvoy.gradle.plugin:${tokenEnvoy}"
     implementation "zone.rong.clearskies:zone.rong.clearskies.gradle.plugin:${clearskies}"
     implementation "zone.rong.formatj:zone.rong.formatj.gradle.plugin:${formatj}"
     implementation "com.gradle.plugin-publish:com.gradle.plugin-publish.gradle.plugin:${pluginPublish}"

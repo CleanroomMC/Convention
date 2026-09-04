@@ -50,6 +50,8 @@ plugins {
 }
 ```
 
+The aggregate plugin also applies [Token Envoy](https://github.com/CleanroomMC/GradleTokenEnvoy) 1.1.0. Configure its `tokenEnvoy` extension to replace `@{NAME}` tokens in compiled classes and resources without rewriting source files.
+
 A `repositories { }` block in `build.gradle` is allowed and only appends. It cannot replace Maven Central, the Plugin Portal, or Cleanroom Maven.
 
 ### Configuration

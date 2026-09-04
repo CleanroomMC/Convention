@@ -10,6 +10,7 @@
 
 package com.cleanroommc.conventions;
 
+import com.cleanroommc.tokenenvoy.TokenEnvoyPlugin;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
 
@@ -21,6 +22,7 @@ public class ConventionsPlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
         project.getPluginManager().apply(ConventionsBasePlugin.class);
+        project.getPluginManager().apply(TokenEnvoyPlugin.class);
         project.getPluginManager().apply(ConventionsLicensePlugin.class);
         project.getPluginManager().apply(ConventionsStylePlugin.class);
         project.getPluginManager().apply(ConventionsTestingPlugin.class);

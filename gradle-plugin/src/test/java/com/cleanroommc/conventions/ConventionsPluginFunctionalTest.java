@@ -76,6 +76,25 @@ class ConventionsPluginFunctionalTest {
     }
 
     @Test
+    void aggregatePluginAppliesTokenEnvoy() throws IOException {
+        project(
+                "id 'java'\n    id 'com.cleanroommc.conventions'",
+                """
+                tokenEnvoy {
+                    set 'VERSION', '1.2.3'
+                }
+                """
+        );
+        Path resource = projectDir.resolve("src/main/resources/version.txt");
+        Files.createDirectories(resource.getParent());
+        Files.writeString(resource, "version=@{VERSION}\n");
+
+        run("processResources");
+
+        assertThat(Files.readString(projectDir.resolve("build/resources/main/version.txt"))).isEqualTo("version=1.2.3\n");
+    }
+
+    @Test
     void extractConventionsWritesPackedFiles() throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions'", "");
 
