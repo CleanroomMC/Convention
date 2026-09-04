@@ -23,6 +23,10 @@ final class ConventionsDefaults {
     static final String MAVEN_REPOSITORY_NAME = "Cleanroom";
     static final String MAVEN_REPOSITORY_URL = "https://maven.cleanroommc.com";
     static final List<String> MAVEN_GROUPS = List.of("com.cleanroommc", "top.outlands", "zone.rong", "net.minecraftforge", "de.oceanlabs.mcp");
+    static final String JUNIT_VERSION = "6.1.3";
+    static final String MOCKITO_VERSION = "5.23.0";
+    static final String ASSERTJ_VERSION = "3.27.7";
+    static final String JMH_VERSION = "1.37";
     static final String JSPECIFY_VERSION = "1.0.0";
     static final String JAVA_VERSION = "25";
 

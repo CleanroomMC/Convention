@@ -18,6 +18,7 @@ import org.gradle.api.Action;
 import org.gradle.api.Project;
 import org.gradle.api.plugins.ExtensionAware;
 import org.gradle.api.plugins.ExtensionContainer;
+import org.gradle.api.provider.Property;
 
 public abstract class ConventionsExtension {
 
@@ -26,11 +27,30 @@ public abstract class ConventionsExtension {
     static ConventionsExtension register(Project project) {
         ExtensionContainer extensions = project.getExtensions();
         ConventionsExtension existing = extensions.findByType(ConventionsExtension.class);
-        if (existing != null) {
-            return existing;
+        ConventionsExtension extension = existing;
+        if (extension == null) {
+            extension = extensions.create(NAME, ConventionsExtension.class);
         }
-        return extensions.create(NAME, ConventionsExtension.class);
+        extension.getRepositoryUrl().convention(ConventionsProperty.REPO_URL.provider(project));
+        extension.getJunitVersion().convention(ConventionsProperty.JUNIT_VERSION.provider(project).orElse(ConventionsDefaults.JUNIT_VERSION));
+        extension.getMockitoVersion().convention(ConventionsProperty.MOCKITO_VERSION.provider(project).orElse(ConventionsDefaults.MOCKITO_VERSION));
+        extension.getAssertjVersion().convention(ConventionsProperty.ASSERTJ_VERSION.provider(project).orElse(ConventionsDefaults.ASSERTJ_VERSION));
+        extension.getJmhVersion().convention(ConventionsProperty.JMH_VERSION.provider(project).orElse(ConventionsDefaults.JMH_VERSION));
+        extension.getJspecifyVersion().convention(ConventionsProperty.JSPECIFY_VERSION.provider(project).orElse(ConventionsDefaults.JSPECIFY_VERSION));
+        return extension;
     }
+
+    public abstract Property<String> getRepositoryUrl();
+
+    public abstract Property<String> getJunitVersion();
+
+    public abstract Property<String> getMockitoVersion();
+
+    public abstract Property<String> getAssertjVersion();
+
+    public abstract Property<String> getJmhVersion();
+
+    public abstract Property<String> getJspecifyVersion();
 
     public ModsExtension getMods() {
         return ((ExtensionAware) this).getExtensions().getByType(ModsExtension.class);

@@ -24,29 +24,23 @@ import org.gradle.api.tasks.testing.logging.TestLoggingContainer;
  */
 public class ConventionsTestingPlugin implements Plugin<Project> {
 
-    private static final String JUNIT_VERSION = "6.1.3";
-    private static final String MOCKITO_VERSION = "5.23.0";
-    private static final String ASSERTJ_VERSION = "3.27.7";
-
     @Override
     public void apply(Project project) {
+        ConventionsExtension conventions = ConventionsExtension.register(project);
         // Apply JUnit Platform Launcher, Jupiter, Mockito, AssertJ dependencies
         project.getPlugins().withType(JavaPlugin.class, _ -> {
             DependencyHandler dependencies = project.getDependencies();
             String testImplementation = JavaPlugin.TEST_IMPLEMENTATION_CONFIGURATION_NAME;
             String testRuntimeOnly = JavaPlugin.TEST_RUNTIME_ONLY_CONFIGURATION_NAME;
-            String junit = ConventionsProperty.JUNIT_VERSION.get(project, JUNIT_VERSION);
-            String mockito = ConventionsProperty.MOCKITO_VERSION.get(project, MOCKITO_VERSION);
-            String assertj = ConventionsProperty.ASSERTJ_VERSION.get(project, ASSERTJ_VERSION);
 
-            dependencies.add(testImplementation, dependencies.platform("org.junit:junit-bom:" + junit));
+            dependencies.addProvider(testImplementation, conventions.getJunitVersion().map(version -> dependencies.platform("org.junit:junit-bom:" + version)));
             dependencies.add(testImplementation, "org.junit.jupiter:junit-jupiter");
             dependencies.add(testRuntimeOnly, "org.junit.platform:junit-platform-launcher");
 
-            dependencies.add(testImplementation, "org.mockito:mockito-core:" + mockito);
-            dependencies.add(testImplementation, "org.mockito:mockito-junit-jupiter:" + mockito);
+            dependencies.addProvider(testImplementation, conventions.getMockitoVersion().map(version -> "org.mockito:mockito-core:" + version));
+            dependencies.addProvider(testImplementation, conventions.getMockitoVersion().map(version -> "org.mockito:mockito-junit-jupiter:" + version));
 
-            dependencies.add(testImplementation, dependencies.platform("org.assertj:assertj-bom:" + assertj));
+            dependencies.addProvider(testImplementation, conventions.getAssertjVersion().map(version -> dependencies.platform("org.assertj:assertj-bom:" + version)));
             dependencies.add(testImplementation, "org.assertj:assertj-core");
             dependencies.add(testImplementation, "org.assertj:assertj-guava");
         });
