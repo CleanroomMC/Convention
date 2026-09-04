@@ -52,23 +52,33 @@ plugins {
 
 A `repositories { }` block in `build.gradle` is allowed and only appends. It cannot replace Maven Central, the Plugin Portal, or Cleanroom Maven.
 
-### Properties
+### Configuration
 
-All optional, set in `gradle.properties`.
+These values are read before the project DSL, so they remain Gradle properties:
 
 | Property                        | Default    | Behaviour                                         |
 |---------------------------------|------------|---------------------------------------------------|
+| `license`                       | `visible`  | `free` (MIT), `open` (LGPLv3), or `visible`       |
 | `conventions.javaMajor`         | `25`       | Java toolchain language version                   |
 | `conventions.provisionJava`     | `false`    | Settings plugin applies Foojay toolchain resolver |
 | `conventions.modPublishing`     | `false`    | Applies the mod conventions                       |
 | `conventions.benchmarking`      | `false`    | Applies the benchmarking conventions              |
-| `conventions.repoUrl`           | git remote | Repository URL used for the POM `url` and `scm`   |
 | `conventions.checkstyleVersion` | `14.0.0`   | Checkstyle version                                |
-| `conventions.junitVersion`      | `6.1.3`    | `org.junit:junit-bom` version                     |
-| `conventions.mockitoVersion`    | `5.23.0`   | Mockito version                                   |
-| `conventions.assertjVersion`    | `3.27.7`   | `org.assertj:assertj-bom` version                 |
-| `conventions.jmhVersion`        | `1.37`     | OpenJDK JMH version                               |
-| `conventions.jspecifyVersion`   | `1.0.0`    | `org.jspecify:jspecify` version                   |
+
+Project-level dependency and publishing values belong to the managed `conventions` extension:
+
+```groovy filename="build.gradle"
+conventions {
+    repositoryUrl = 'https://github.com/CleanroomMC/example'
+    junitVersion = '6.1.3'
+    mockitoVersion = '5.23.0'
+    assertjVersion = '3.27.7'
+    jmhVersion = '1.37'
+    jspecifyVersion = '1.0.0'
+}
+```
+
+The existing `conventions.repoUrl`, `conventions.junitVersion`, `conventions.mockitoVersion`, `conventions.assertjVersion`, `conventions.jmhVersion` and `conventions.jspecifyVersion` Gradle properties remain supported as defaults for compatibility and CI overrides. An extension value takes precedence.
 
 > [!IMPORTANT]
 > Cleanroom Versioning is applied by the base conventions and refuses to apply without `version`
@@ -77,7 +87,7 @@ All optional, set in `gradle.properties`.
 
 ### Extraction
 
-Gradle reads `checkstyle.xml`, `formatj.toml`, `cliff.toml`, `LICENSE` and `HEADER` from the plugin jar.
+Gradle reads `checkstyle.xml`, `formatj.toml`, `cliff.toml`, the selected `LICENSE`, and its `HEADER` from the plugin jar.
 Git, editors and git-cliff still need files on disk.
 `checkLicense` also reads `LICENSE` from the project directory or a parent directory, and every Java file has to start with `HEADER`.
 `extractConventions` writes them into the root project directory:
@@ -119,7 +129,15 @@ Applied from `settings.gradle`.
 
 ### License Conventions
 
-- `checkLicense` (attached to `check`) requires `LICENSE` in the project directory or a parent directory to match CleanroomMC License Version 1.0.
+Set one license mode in `gradle.properties`:
+
+| `license` value | License                                      | SPDX identifier  |
+|-----------------|----------------------------------------------|------------------|
+| `free`          | MIT License                                  | `MIT`            |
+| `open`          | GNU Lesser General Public License version 3  | `LGPL-3.0-only`  |
+| `visible`       | CleanroomMC License Version 1.0              | Custom           |
+
+`visible` is the default. The selected mode controls `checkLicense`, `extractConventions`, the Java header required by Checkstyle, and Maven POM license metadata. `checkLicense` is attached to `check` and accepts a matching `LICENSE` in the project directory or a parent directory.
 
 ### Style Conventions
 
@@ -130,7 +148,7 @@ Applied from `settings.gradle`.
 The three run in a fixed order, since each one judges what the previous one wrote:
 - ClearSkies > FormatJ > Checkstyle
 
-Checkstyle requires the CleanroomMC file header from `HEADER` as a Java block comment at the top of every `.java` file.
+Checkstyle requires the selected license header from `HEADER` as a Java block comment at the top of every `.java` file.
 
 Checkstyle warns when an imported `Nullable`, `NonNull`, `Nonnull`, `NotNull` or `CheckForNull` annotation does not come from `org.jspecify.annotations`. The advisory stays at import level so legacy or generated fully-qualified references do not block a build.
 
@@ -155,7 +173,7 @@ Disabled by default. Enable it through the aggregate plugin in `gradle.propertie
 conventions.benchmarking = true
 ```
 
-You can also apply `com.cleanroommc.conventions.benchmarking` directly. It creates an isolated `benchmark` source set rooted at `src/benchmark/java` and `src/benchmark/resources`, with OpenJDK JMH on its implementation and annotation processor classpaths. It can use production classes and dependencies, but does not inherit from `test` or run as part of `test`, `check` or `build`.
+You can also apply `com.cleanroommc.conventions.benchmarking` directly. It creates an isolated `benchmark` source set rooted at `src/benchmark/java` and `src/benchmark/resources`, with OpenJDK JMH on its implementation and annotation processor classpaths. Its compile and runtime classpaths include `main` output and dependencies. It does not inherit from `test` or run as part of `test`, `check` or `build`.
 
 Put JMH benchmarks under `src/benchmark/java` and add any benchmark-only libraries to `benchmarkImplementation`:
 
@@ -187,9 +205,9 @@ Pass standard JMH arguments through the `JavaExec` task. For example:
   - Description
   - Url
   - CleanroomMC organization
-  - License: CleanroomMC License Version 1.0
+  - Selected license name and URL
   - `scm` connections.
-    - Repository URL comes from `conventions.repoUrl` fallback being git upstream remote
+    - Repository URL comes from `conventions.repositoryUrl`, then the git upstream remote
     - `gradlePlugin.vcsUrl` for plugin projects.
 - Creates a `maven` publication from the `java` component (if there is no existing `maven` publication)
   - Unless the project applies `java-gradle-plugin` (which brings its own `pluginMaven` publication)
