@@ -115,7 +115,7 @@ class ConventionsPluginFunctionalTest {
     @EnumSource(LicenseMode.class)
     void extractConventionsWritesTheSelectedLicense(LicenseMode license) throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions'", "");
-        property("license = " + license.propertyValue());
+        property("conventions.license = " + license.propertyValue());
 
         run("extractConventions");
 
@@ -174,6 +174,20 @@ class ConventionsPluginFunctionalTest {
 
         run("extractConventions");
 
+        assertThat(Files.readString(projectDir.resolve("HEADER"))).contains("Copyright (c) " + begin + "-" + current + " CleanroomMC contributors");
+    }
+
+    @Test
+    void editingTheHeaderYearOutlivesTheConfigurationCache() throws IOException {
+        int current = Year.now().getValue();
+        int begin = current - 3;
+        project("id 'java'\n    id 'com.cleanroommc.conventions'", "");
+        run("--configuration-cache", "extractConventions");
+        Files.writeString(projectDir.resolve("HEADER"), LicenseMode.VISIBLE.headerText(LicenseYears.of(begin, begin)));
+
+        BuildResult second = run("--configuration-cache", "extractConventions");
+
+        assertThat(second.getOutput()).contains("Reusing configuration cache.");
         assertThat(Files.readString(projectDir.resolve("HEADER"))).contains("Copyright (c) " + begin + "-" + current + " CleanroomMC contributors");
     }
 
@@ -685,10 +699,19 @@ class ConventionsPluginFunctionalTest {
     @EnumSource(LicenseMode.class)
     void checkstyleAcceptsTheSelectedLicenseHeader(LicenseMode license) throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions.style'", "");
-        property("license = " + license.propertyValue());
+        property("conventions.license = " + license.propertyValue());
         Path source = projectDir.resolve("src/main/java/example/Example.java");
         Files.createDirectories(source.getParent());
         Files.writeString(source, javaSource(license, "package example;\n\npublic class Example {\n}\n"));
+        assertThat(run("checkstyleMain").getOutput()).contains("BUILD SUCCESSFUL");
+    }
+
+    @Test
+    void checkstyleAcceptsAHeaderFromAnotherYear() throws IOException {
+        project("id 'java'\n    id 'com.cleanroommc.conventions.style'", "");
+        Path source = projectDir.resolve("src/main/java/example/Example.java");
+        Files.createDirectories(source.getParent());
+        Files.writeString(source, javaSource(LicenseMode.VISIBLE, LicenseYears.of(2021, 2022), "package example;\n\npublic class Example {\n}\n"));
         assertThat(run("checkstyleMain").getOutput()).contains("BUILD SUCCESSFUL");
     }
 
@@ -702,7 +725,7 @@ class ConventionsPluginFunctionalTest {
     @EnumSource(LicenseMode.class)
     void checkLicensePassesWhenTheSelectedLicenseMatches(LicenseMode license) throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions.license'", "");
-        property("license = " + license.propertyValue());
+        property("conventions.license = " + license.propertyValue());
         Files.writeString(projectDir.resolve("LICENSE"), license.licenseText(LicenseYears.current()));
         assertThat(run("checkLicense").getOutput()).contains("BUILD SUCCESSFUL");
     }
@@ -718,7 +741,7 @@ class ConventionsPluginFunctionalTest {
     @EnumSource(LicenseMode.class)
     void publishingDeclaresTheSelectedLicense(LicenseMode license) throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions.publishing'", "");
-        property("license = " + license.propertyValue());
+        property("conventions.license = " + license.propertyValue());
         run("generatePomFileForMavenPublication");
         String pom = Files.readString(projectDir.resolve("build/publications/maven/pom-default.xml"));
         assertThat(pom).contains(license.displayName());
@@ -731,7 +754,7 @@ class ConventionsPluginFunctionalTest {
     @Test
     void unknownLicenseModeFailsConfiguration() throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions.license'", "");
-        property("license = proprietary");
+        property("conventions.license = proprietary");
         assertThat(runAndFail("help").getOutput()).contains("Expected free, open or visible");
     }
 
@@ -750,7 +773,11 @@ class ConventionsPluginFunctionalTest {
     }
 
     private static String javaSource(LicenseMode license, String body) {
-        return license.javaHeader(LicenseYears.current()) + "\n\n" + body;
+        return javaSource(license, LicenseYears.current(), body);
+    }
+
+    private static String javaSource(LicenseMode license, LicenseYears years, String body) {
+        return license.javaHeader(years) + "\n\n" + body;
     }
 
     private static String printToolchain() {

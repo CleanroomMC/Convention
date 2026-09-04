@@ -47,8 +47,8 @@ public abstract class CheckLicenseTask extends DefaultTask {
             task.getExpectedName().convention(license.displayName());
             task.getStartDirectory().convention(project.getRootProject().getLayout().getProjectDirectory());
         });
-        project.getPluginManager()
-                .withPlugin("lifecycle-base", _ -> project.getTasks().named(LifecycleBasePlugin.CHECK_TASK_NAME).configure(check -> check.dependsOn(NAME)));
+        project.getPluginManager().apply(LifecycleBasePlugin.class);
+        project.getTasks().named(LifecycleBasePlugin.CHECK_TASK_NAME).configure(check -> check.dependsOn(NAME));
     }
 
     @Input

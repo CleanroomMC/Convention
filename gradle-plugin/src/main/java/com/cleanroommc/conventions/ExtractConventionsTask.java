@@ -17,6 +17,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Set;
 import org.gradle.api.DefaultTask;
+import org.gradle.api.GradleException;
 import org.gradle.api.Project;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.DirectoryProperty;
@@ -89,7 +90,7 @@ public abstract class ExtractConventionsTask extends DefaultTask {
             String incoming = entry.getValue();
             String outgoing = incoming;
             if (merged.contains(entry.getKey()) && Files.exists(target)) {
-                outgoing = mergeMarkedRegion(Files.readString(target), incoming);
+                outgoing = mergeMarkedRegion(Files.readString(target), incoming, entry.getKey());
             }
             Path parent = target.getParent();
             if (parent != null) {
@@ -99,11 +100,16 @@ public abstract class ExtractConventionsTask extends DefaultTask {
         }
     }
 
-    static String mergeMarkedRegion(String existing, String incoming) {
+    static String mergeMarkedRegion(String existing, String incoming, String fileName) {
         String block = region(incoming);
         int begin = existing.indexOf(REGION_BEGIN);
         int end = existing.indexOf(REGION_END);
-        if (begin >= 0 && end >= begin) {
+        if (begin >= 0 && end < begin) {
+            throw new GradleException(
+                    fileName + " opens '" + REGION_BEGIN + "' without a matching '" + REGION_END + "'. Repair or delete the region and run " + NAME + " again."
+            );
+        }
+        if (begin >= 0) {
             int after = end + REGION_END.length();
             if (after < existing.length() && existing.charAt(after) == '\n') {
                 after++;

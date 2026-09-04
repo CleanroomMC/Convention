@@ -11,6 +11,8 @@
 package com.cleanroommc.conventions;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import org.gradle.api.GradleException;
 import org.junit.jupiter.api.Test;
 
 class ExtractConventionsTaskTest {
@@ -19,16 +21,25 @@ class ExtractConventionsTaskTest {
     void mergeReplacesTheMarkedRegionAndKeepsTheRest() {
         String existing = "# >>> cleanroom-conventions\nold/\n# <<< cleanroom-conventions\nmine.iml\n";
         String incoming = "# >>> cleanroom-conventions\nnew/\n# <<< cleanroom-conventions\n";
-        assertThat(ExtractConventionsTask.mergeMarkedRegion(existing, incoming)).isEqualTo(
+        assertThat(ExtractConventionsTask.mergeMarkedRegion(existing, incoming, ".gitignore")).isEqualTo(
                 "# >>> cleanroom-conventions\nnew/\n# <<< cleanroom-conventions\nmine.iml\n"
         );
+    }
+
+    @Test
+    void mergeRejectsAnUnclosedRegion() {
+        String existing = "# >>> cleanroom-conventions\nold/\nmine.iml\n";
+        String incoming = "# >>> cleanroom-conventions\nnew/\n# <<< cleanroom-conventions\n";
+        assertThatThrownBy(() -> ExtractConventionsTask.mergeMarkedRegion(existing, incoming, ".gitignore"))
+                .isInstanceOf(GradleException.class)
+                .hasMessageContaining(".gitignore opens");
     }
 
     @Test
     void mergePrependsWhenTheExistingFileHasNoMarkers() {
         String existing = "mine.iml\n";
         String incoming = "# >>> cleanroom-conventions\nnew/\n# <<< cleanroom-conventions\n";
-        assertThat(ExtractConventionsTask.mergeMarkedRegion(existing, incoming)).isEqualTo(
+        assertThat(ExtractConventionsTask.mergeMarkedRegion(existing, incoming, ".gitignore")).isEqualTo(
                 "# >>> cleanroom-conventions\nnew/\n# <<< cleanroom-conventions\nmine.iml\n"
         );
     }

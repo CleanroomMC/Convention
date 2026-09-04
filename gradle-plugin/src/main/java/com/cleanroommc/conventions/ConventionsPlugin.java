@@ -27,10 +27,10 @@ public class ConventionsPlugin implements Plugin<Project> {
         project.getPluginManager().apply(ConventionsStylePlugin.class);
         project.getPluginManager().apply(ConventionsTestingPlugin.class);
         project.getPluginManager().apply(ConventionsPublishingPlugin.class);
-        if (ConventionsProperty.BENCHMARKING.provider(project).map(Boolean::parseBoolean).getOrElse(false)) {
+        if (ConventionsProperty.BENCHMARKING.flag(project.getProviders(), false)) {
             project.getPluginManager().apply(ConventionsBenchmarkingPlugin.class);
         }
-        if (ConventionsProperty.MOD_PUBLISHING.provider(project).map(Boolean::parseBoolean).getOrElse(false)) {
+        if (ConventionsProperty.MOD_PUBLISHING.flag(project.getProviders(), false)) {
             project.getPluginManager().apply(ConventionsModPlugin.class);
         }
     }
