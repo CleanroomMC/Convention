@@ -13,7 +13,6 @@ package com.cleanroommc.conventions;
 import org.gradle.api.NamedDomainObjectProvider;
 import org.gradle.api.Plugin;
 import org.gradle.api.Project;
-import org.gradle.api.artifacts.ConfigurationContainer;
 import org.gradle.api.artifacts.dsl.DependencyHandler;
 import org.gradle.api.file.FileCollection;
 import org.gradle.api.plugins.JavaPlugin;
@@ -30,32 +29,35 @@ import org.gradle.jvm.toolchain.JavaToolchainService;
 public class ConventionsBenchmarkingPlugin implements Plugin<Project> {
 
     private static final String BENCHMARK_SOURCE_SET_NAME = "benchmark";
-    private static final String JMH_VERSION = "1.37";
 
     @Override
     public void apply(Project project) {
-        project.getPlugins().withType(JavaPlugin.class, _ -> configureBenchmarking(project));
+        ConventionsExtension conventions = ConventionsExtension.register(project);
+        project.getPlugins().withType(JavaPlugin.class, _ -> configureBenchmarking(project, conventions));
     }
 
-    private void configureBenchmarking(Project project) {
+    private void configureBenchmarking(Project project, ConventionsExtension conventions) {
         JavaPluginExtension java = project.getExtensions().getByType(JavaPluginExtension.class);
         SourceSetContainer sourceSets = java.getSourceSets();
         NamedDomainObjectProvider<SourceSet> main = sourceSets.named(SourceSet.MAIN_SOURCE_SET_NAME);
         NamedDomainObjectProvider<SourceSet> benchmark = sourceSets.register(BENCHMARK_SOURCE_SET_NAME, sourceSet -> {
             FileCollection mainOutput = project.files(main.map(SourceSet::getOutput));
-            sourceSet.setCompileClasspath(sourceSet.getCompileClasspath().plus(mainOutput));
-            sourceSet.setRuntimeClasspath(sourceSet.getRuntimeClasspath().plus(mainOutput));
+            FileCollection mainCompileClasspath = project.files(main.map(SourceSet::getCompileClasspath));
+            FileCollection mainRuntimeClasspath = project.files(main.map(SourceSet::getRuntimeClasspath));
+            sourceSet.setCompileClasspath(sourceSet.getCompileClasspath().plus(mainOutput).plus(mainCompileClasspath));
+            sourceSet.setRuntimeClasspath(sourceSet.getRuntimeClasspath().plus(mainRuntimeClasspath));
         });
 
-        ConfigurationContainer configurations = project.getConfigurations();
-        String jmh = ConventionsProperty.JMH_VERSION.get(project, JMH_VERSION);
         DependencyHandler dependencies = project.getDependencies();
         benchmark.configure(sourceSet -> {
-            extend(configurations, sourceSet.getImplementationConfigurationName(), JavaPlugin.IMPLEMENTATION_CONFIGURATION_NAME);
-            extend(configurations, sourceSet.getCompileOnlyConfigurationName(), JavaPlugin.COMPILE_ONLY_CONFIGURATION_NAME);
-            extend(configurations, sourceSet.getRuntimeOnlyConfigurationName(), JavaPlugin.RUNTIME_ONLY_CONFIGURATION_NAME);
-            dependencies.add(sourceSet.getImplementationConfigurationName(), "org.openjdk.jmh:jmh-core:" + jmh);
-            dependencies.add(sourceSet.getAnnotationProcessorConfigurationName(), "org.openjdk.jmh:jmh-generator-annprocess:" + jmh);
+            dependencies.addProvider(
+                    sourceSet.getImplementationConfigurationName(),
+                    conventions.getJmhVersion().map(version -> "org.openjdk.jmh:jmh-core:" + version)
+            );
+            dependencies.addProvider(
+                    sourceSet.getAnnotationProcessorConfigurationName(),
+                    conventions.getJmhVersion().map(version -> "org.openjdk.jmh:jmh-generator-annprocess:" + version)
+            );
         });
 
         JavaToolchainService toolchains = project.getExtensions().getByType(JavaToolchainService.class);
@@ -67,11 +69,6 @@ public class ConventionsBenchmarkingPlugin implements Plugin<Project> {
             task.setClasspath(project.files(benchmark.map(SourceSet::getRuntimeClasspath)));
             task.getJavaLauncher().set(toolchains.launcherFor(java.getToolchain()));
         });
-    }
-
-    @SuppressWarnings("unchecked")
-    private void extend(ConfigurationContainer configurations, String childName, String parentName) {
-        configurations.named(childName).configure(child -> child.extendsFrom(configurations.named(parentName)));
     }
 
 }
