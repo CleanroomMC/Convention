@@ -19,6 +19,7 @@ import org.gradle.testkit.runner.GradleRunner;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class ConventionsPluginFunctionalTest {
@@ -90,6 +91,19 @@ class ConventionsPluginFunctionalTest {
         assertThat(run("assemble").getOutput()).doesNotContain("extractConventions");
     }
 
+    @ParameterizedTest
+    @EnumSource(LicenseMode.class)
+    void extractConventionsWritesTheSelectedLicense(LicenseMode license) throws IOException {
+        project("id 'java'\n    id 'com.cleanroommc.conventions'", "");
+        property("license = " + license.propertyValue());
+
+        run("extractConventions");
+
+        assertThat(Files.readString(projectDir.resolve("LICENSE"))).isEqualTo(license.licenseText());
+        assertThat(Files.readString(projectDir.resolve("HEADER"))).isEqualTo(license.headerText());
+        assertThat(Files.readString(projectDir.resolve("checkstyle.xml"))).doesNotContain("@LICENSE_HEADER@");
+    }
+
     @Test
     void extractConventionsMergesTheGitignoreRegion() throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions'", "");
@@ -120,6 +134,12 @@ class ConventionsPluginFunctionalTest {
     void jspecifyIsCompileOnly() throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions.base'", printCompileOnly());
         assertThat(run("printCompileOnly").getOutput()).contains("org.jspecify:jspecify:1.0.0");
+    }
+
+    @Test
+    void jspecifyVersionCanBeConfiguredThroughTheExtension() throws IOException {
+        project("id 'java'\n    id 'com.cleanroommc.conventions.base'", "conventions { jspecifyVersion = '0.3.0' }\n\n" + printCompileOnly());
+        assertThat(run("printCompileOnly").getOutput()).contains("org.jspecify:jspecify:0.3.0");
     }
 
     @Test
@@ -370,6 +390,26 @@ class ConventionsPluginFunctionalTest {
     }
 
     @Test
+    void testingVersionsCanBeConfiguredThroughTheExtension() throws IOException {
+        project(
+                "id 'java'\n    id 'com.cleanroommc.conventions.testing'",
+                """
+                conventions {
+                    junitVersion = '5.11.4'
+                    mockitoVersion = '5.14.2'
+                    assertjVersion = '3.26.3'
+                }
+
+                """ +
+                        printTestDependencies()
+        );
+        String output = run("printTestDependencies").getOutput();
+        assertThat(output).contains("org.junit:junit-bom:5.11.4");
+        assertThat(output).contains("org.mockito:mockito-core:5.14.2");
+        assertThat(output).contains("org.assertj:assertj-bom:3.26.3");
+    }
+
+    @Test
     void benchmarkingIsOptIn() throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions'", printBenchmarking());
         assertThat(run("printBenchmarking").getOutput()).contains("benchmarking=absent");
@@ -389,6 +429,33 @@ class ConventionsPluginFunctionalTest {
         String output = run("printBenchmarkDependencies").getOutput();
         assertThat(output).contains("org.openjdk.jmh:jmh-core:1.36");
         assertThat(output).contains("org.openjdk.jmh:jmh-generator-annprocess:1.36");
+    }
+
+    @Test
+    void jmhVersionCanBeConfiguredThroughTheExtension() throws IOException {
+        project("id 'java'\n    id 'com.cleanroommc.conventions.benchmarking'", "conventions { jmhVersion = '1.36' }\n\n" + printBenchmarkDependencies());
+        String output = run("printBenchmarkDependencies").getOutput();
+        assertThat(output).contains("org.openjdk.jmh:jmh-core:1.36");
+        assertThat(output).contains("org.openjdk.jmh:jmh-generator-annprocess:1.36");
+    }
+
+    @Test
+    void benchmarkSeesMainDependencies() throws IOException {
+        project(
+                "id 'java'\n    id 'com.cleanroommc.conventions.benchmarking'",
+                """
+                dependencies {
+                    implementation files('main-dependency')
+                }
+                tasks.register('printBenchmarkClasspath') {
+                    doLast {
+                        println "benchmarkClasspath=${sourceSets.benchmark.compileClasspath.files*.name}"
+                    }
+                }
+                """
+        );
+        Files.createDirectories(projectDir.resolve("main-dependency"));
+        assertThat(run("printBenchmarkClasspath").getOutput()).contains("main-dependency");
     }
 
     @Test
@@ -455,6 +522,15 @@ class ConventionsPluginFunctionalTest {
     void publishingCreatesAMavenPublicationForAPlainJavaProject() throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions.publishing'", printPublications());
         assertThat(run("printPublications").getOutput()).contains("publications=[maven]");
+    }
+
+    @Test
+    void repositoryUrlCanBeConfiguredThroughTheExtension() throws IOException {
+        project("id 'java'\n    id 'com.cleanroommc.conventions.publishing'", "conventions { repositoryUrl = 'https://example.com/cleanroom/project' }");
+        run("generatePomFileForMavenPublication");
+        String pom = Files.readString(projectDir.resolve("build/publications/maven/pom-default.xml"));
+        assertThat(pom).contains("<url>https://example.com/cleanroom/project</url>");
+        assertThat(pom).contains("<connection>scm:git:https://example.com/cleanroom/project.git</connection>");
     }
 
     @Test
@@ -525,12 +601,14 @@ class ConventionsPluginFunctionalTest {
         assertThat(runAndFail("checkstyleMain").getOutput()).contains("Missing a header");
     }
 
-    @Test
-    void checkstyleAcceptsAJavaFileWithTheHeader() throws IOException {
+    @ParameterizedTest
+    @EnumSource(LicenseMode.class)
+    void checkstyleAcceptsTheSelectedLicenseHeader(LicenseMode license) throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions.style'", "");
+        property("license = " + license.propertyValue());
         Path source = projectDir.resolve("src/main/java/example/Example.java");
         Files.createDirectories(source.getParent());
-        Files.writeString(source, javaSource("package example;\n\npublic class Example {\n}\n"));
+        Files.writeString(source, javaSource(license, "package example;\n\npublic class Example {\n}\n"));
         assertThat(run("checkstyleMain").getOutput()).contains("BUILD SUCCESSFUL");
     }
 
@@ -540,10 +618,12 @@ class ConventionsPluginFunctionalTest {
         assertThat(runAndFail("checkLicense").getOutput()).contains("Missing LICENSE");
     }
 
-    @Test
-    void checkLicensePassesWhenTheFileMatches() throws IOException {
+    @ParameterizedTest
+    @EnumSource(LicenseMode.class)
+    void checkLicensePassesWhenTheSelectedLicenseMatches(LicenseMode license) throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions.license'", "");
-        Files.writeString(projectDir.resolve("LICENSE"), ConventionsFile.LICENSE.read());
+        property("license = " + license.propertyValue());
+        Files.writeString(projectDir.resolve("LICENSE"), license.licenseText());
         assertThat(run("checkLicense").getOutput()).contains("BUILD SUCCESSFUL");
     }
 
@@ -554,14 +634,25 @@ class ConventionsPluginFunctionalTest {
         assertThat(runAndFail("checkLicense").getOutput()).contains("does not match CleanroomMC License Version 1.0");
     }
 
-    @Test
-    void publishingDeclaresTheCleanroomLicense() throws IOException {
+    @ParameterizedTest
+    @EnumSource(LicenseMode.class)
+    void publishingDeclaresTheSelectedLicense(LicenseMode license) throws IOException {
         project("id 'java'\n    id 'com.cleanroommc.conventions.publishing'", "");
+        property("license = " + license.propertyValue());
         run("generatePomFileForMavenPublication");
         String pom = Files.readString(projectDir.resolve("build/publications/maven/pom-default.xml"));
-        assertThat(pom).contains(ConventionsDefaults.LICENSE_NAME);
-        assertThat(pom).contains(ConventionsDefaults.LICENSE_URL);
-        assertThat(pom).contains(ConventionsDefaults.LICENSE_COMMENTS);
+        assertThat(pom).contains(license.displayName());
+        assertThat(pom).contains(license.url());
+        if (!license.comments().isEmpty()) {
+            assertThat(pom).contains(license.comments());
+        }
+    }
+
+    @Test
+    void unknownLicenseModeFailsConfiguration() throws IOException {
+        project("id 'java'\n    id 'com.cleanroommc.conventions.license'", "");
+        property("license = proprietary");
+        assertThat(runAndFail("help").getOutput()).contains("Expected free, open or visible");
     }
 
     @Test
@@ -576,6 +667,10 @@ class ConventionsPluginFunctionalTest {
 
     private static String javaSource(String body) {
         return ConventionsFile.javaHeader() + "\n\n" + body;
+    }
+
+    private static String javaSource(LicenseMode license, String body) {
+        return license.javaHeader() + "\n\n" + body;
     }
 
     private static String printToolchain() {

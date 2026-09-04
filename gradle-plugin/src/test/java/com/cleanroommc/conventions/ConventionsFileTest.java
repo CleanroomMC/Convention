@@ -11,9 +11,9 @@
 package com.cleanroommc.conventions;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class ConventionsFileTest {
 
@@ -34,11 +34,15 @@ class ConventionsFileTest {
     }
 
     @Test
-    void checkstyleHeaderMatchesTheHeaderFile() {
-        Matcher matcher = Pattern.compile("<module name=\"Header\">\\s*<property name=\"header\" value=\"([^\"]*)\"/>", Pattern.DOTALL)
-                .matcher(ConventionsFile.CHECKSTYLE.read());
-        assertThat(matcher.find()).isTrue();
-        assertThat(matcher.group(1).replace("\\n", "\n")).isEqualTo(ConventionsFile.javaHeader());
+    void checkstyleContainsTheLicenseHeaderPlaceholder() {
+        assertThat(ConventionsFile.CHECKSTYLE.read()).contains("<property name=\"header\" value=\"@LICENSE_HEADER@\"/>");
+    }
+
+    @ParameterizedTest
+    @EnumSource(LicenseMode.class)
+    void checkstyleRendersEveryLicenseHeader(LicenseMode license) {
+        assertThat(ConventionsFile.checkstyle(license)).doesNotContain("@LICENSE_HEADER@");
+        assertThat(ConventionsFile.checkstyle(license)).contains(license.headerText().lines().findFirst().orElseThrow());
     }
 
 }
