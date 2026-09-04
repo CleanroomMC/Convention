@@ -41,9 +41,10 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
         PluginManager plugins = project.getPluginManager();
+        ConventionsExtension conventions = ConventionsExtension.register(project);
 
         project.getPlugins().withType(JavaPlugin.class, _ -> configureJavaPublishing(project));
-        project.getPlugins().withType(MavenPublishPlugin.class, _ -> configurePublications(project));
+        project.getPlugins().withType(MavenPublishPlugin.class, _ -> configurePublications(project, conventions));
         plugins.withPlugin(JAVA_GRADLE_PLUGIN_ID, _ -> configurePluginPublishing(project));
     }
 
@@ -82,12 +83,13 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
         signing.sign(publishing.getPublications());
     }
 
-    private void configurePublications(Project project) {
+    private void configurePublications(Project project, ConventionsExtension conventions) {
         PublishingExtension publishing = project.getExtensions().getByType(PublishingExtension.class);
+        LicenseMode license = LicenseMode.from(project);
         addCleanroomRepository(publishing);
         configureSigning(project, publishing);
 
-        Provider<String> fromProperty = ConventionsProperty.REPO_URL.provider(project).map(ConventionsPublishingPlugin::canonicalHttpUrl);
+        Provider<String> fromProperty = conventions.getRepositoryUrl().map(ConventionsPublishingPlugin::canonicalHttpUrl);
         Provider<String> fromGit = gitUpstreamUrl(project);
 
         Property<String> repositoryUrl = project.getObjects().property(String.class);
@@ -107,10 +109,16 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
 
         publishing.getPublications()
                 .withType(MavenPublication.class)
-                .configureEach(publication -> configurePom(project, publication, homepageUrl, repositoryUrl));
+                .configureEach(publication -> configurePom(project, publication, homepageUrl, repositoryUrl, license));
     }
 
-    private void configurePom(Project project, MavenPublication publication, Provider<String> homepageUrl, Provider<String> repositoryUrl) {
+    private void configurePom(
+            Project project,
+            MavenPublication publication,
+            Provider<String> homepageUrl,
+            Provider<String> repositoryUrl,
+            LicenseMode licenseMode
+    ) {
         publication.pom(pom -> {
             pom.getName().convention(project.provider(project::getName));
             pom.getDescription().convention(project.provider(project::getDescription));
@@ -120,10 +128,12 @@ public class ConventionsPublishingPlugin implements Plugin<Project> {
                 organization.getUrl().convention(ConventionsDefaults.ORGANIZATION_URL);
             });
             pom.licenses(licenses -> licenses.license(license -> {
-                license.getName().convention(ConventionsDefaults.LICENSE_NAME);
-                license.getUrl().convention(ConventionsDefaults.LICENSE_URL);
+                license.getName().convention(licenseMode.displayName());
+                license.getUrl().convention(licenseMode.url());
                 license.getDistribution().convention("repo");
-                license.getComments().convention(ConventionsDefaults.LICENSE_COMMENTS);
+                if (!licenseMode.comments().isEmpty()) {
+                    license.getComments().convention(licenseMode.comments());
+                }
             }));
             pom.scm(scm -> {
                 scm.getUrl().convention(repositoryUrl);

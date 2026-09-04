@@ -43,17 +43,22 @@ public abstract class ExtractConventionsTask extends DefaultTask {
         if (project.getTasks().getNames().contains(NAME)) {
             return;
         }
+        LicenseMode license = LicenseMode.from(project);
         project.getTasks().register(NAME, ExtractConventionsTask.class, task -> {
             task.setGroup("conventions");
             task.setDescription("Writes convention files into the project directory. Not attached to build, check or assemble.");
             task.getDestinationDirectory().convention(project.getRootProject().getLayout().getProjectDirectory());
             for (ConventionsFile file : ConventionsFile.values()) {
-                task.getContents().put(file.fileName(), file.read());
+                task.getContents().put(file.fileName(), file == ConventionsFile.CHECKSTYLE ? ConventionsFile.checkstyle(license) : file.read());
                 if (file.mergeMarkedRegion()) {
                     task.getMergedPaths().add(file.fileName());
                 }
                 task.getOutputFiles().from(task.getDestinationDirectory().file(file.fileName()));
             }
+            task.getContents().put("LICENSE", license.licenseText());
+            task.getContents().put("HEADER", license.headerText());
+            task.getOutputFiles().from(task.getDestinationDirectory().file("LICENSE"));
+            task.getOutputFiles().from(task.getDestinationDirectory().file("HEADER"));
         });
     }
 

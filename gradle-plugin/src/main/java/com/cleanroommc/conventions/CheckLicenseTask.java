@@ -26,7 +26,7 @@ import org.gradle.language.base.plugins.LifecycleBasePlugin;
 import org.gradle.work.DisableCachingByDefault;
 
 /**
- * Requires {@code LICENSE} in the project directory or a parent directory to match CleanroomMC License Version 1.0.
+ * Requires {@code LICENSE} in the project directory or a parent directory to match the configured license mode.
  */
 @DisableCachingByDefault(because = "License verification is cheap and has no outputs")
 public abstract class CheckLicenseTask extends DefaultTask {
@@ -37,10 +37,12 @@ public abstract class CheckLicenseTask extends DefaultTask {
         if (project.getTasks().getNames().contains(NAME)) {
             return;
         }
+        LicenseMode license = LicenseMode.from(project);
         project.getTasks().register(NAME, CheckLicenseTask.class, task -> {
             task.setGroup(LifecycleBasePlugin.VERIFICATION_GROUP);
-            task.setDescription("Requires LICENSE in the project directory or a parent directory to match CleanroomMC License Version 1.0.");
-            task.getExpected().convention(ConventionsFile.LICENSE.read());
+            task.setDescription("Requires LICENSE in the project directory or a parent directory to match the configured license mode.");
+            task.getExpected().convention(license.licenseText());
+            task.getExpectedName().convention(license.displayName());
             task.getStartDirectory().convention(project.getRootProject().getLayout().getProjectDirectory());
         });
         project.getPluginManager()
@@ -49,6 +51,9 @@ public abstract class CheckLicenseTask extends DefaultTask {
 
     @Input
     public abstract Property<String> getExpected();
+
+    @Input
+    public abstract Property<String> getExpectedName();
 
     @Internal
     public abstract DirectoryProperty getStartDirectory();
@@ -59,12 +64,12 @@ public abstract class CheckLicenseTask extends DefaultTask {
         Path license = findLicense(start);
         if (license == null) {
             throw new GradleException(
-                    "Missing LICENSE. Run extractConventions, or copy CleanroomMC License Version 1.0 to the project directory or a parent directory."
+                    "Missing LICENSE. Run extractConventions, or copy " + getExpectedName().get() + " to the project directory or a parent directory."
             );
         }
         String actual = Files.readString(license, StandardCharsets.UTF_8);
         if (!sameLicense(getExpected().get(), actual)) {
-            throw new GradleException(license + " does not match CleanroomMC License Version 1.0.");
+            throw new GradleException(license + " does not match " + getExpectedName().get() + ".");
         }
     }
 

@@ -26,7 +26,8 @@ enum ConventionsProperty {
     JMH_VERSION("conventions.jmhVersion"),
     BENCHMARKING("conventions.benchmarking"),
     JSPECIFY_VERSION("conventions.jspecifyVersion"),
-    PROVISION_JAVA("conventions.provisionJava");
+    PROVISION_JAVA("conventions.provisionJava"),
+    LICENSE("license");
 
     private final String key;
 

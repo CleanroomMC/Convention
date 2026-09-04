@@ -31,6 +31,7 @@ public class ConventionsStylePlugin implements Plugin<Project> {
     @Override
     public void apply(Project project) {
         ExtractConventionsTask.register(project);
+        LicenseMode license = LicenseMode.from(project);
 
         PluginManager plugins = project.getPluginManager();
         TaskContainer tasks = project.getTasks();
@@ -46,7 +47,7 @@ public class ConventionsStylePlugin implements Plugin<Project> {
         plugins.apply(CheckstylePlugin.class);
         CheckstyleExtension checkstyle = project.getExtensions().getByType(CheckstyleExtension.class);
         checkstyle.setToolVersion(ConventionsProperty.CHECKSTYLE_VERSION.get(project, CHECKSTYLE_VERSION));
-        checkstyle.setConfig(project.getResources().getText().fromString(ConventionsFile.CHECKSTYLE.read()));
+        checkstyle.setConfig(project.getResources().getText().fromString(ConventionsFile.checkstyle(license)));
 
         // ClearSkies expands star imports, FormatJ formats the lines it wrote, Checkstyle judges the result.
         tasks.named(FormatJPlugin.APPLY_TASK_NAME).configure(task -> task.mustRunAfter(ClearSkiesPlugin.APPLY_TASK_NAME));

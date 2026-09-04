@@ -26,7 +26,7 @@
   </module>
   <!-- Wrapped HEADER. The plugin test fails if this drifts from the HEADER file. -->
   <module name="Header">
-    <property name="header" value="/*\n * Copyright (c) 2021-present CleanroomMC contributors\n *\n * This file is licensed under the CleanroomMC License Version 1.0.\n * See the applicable LICENSE file in this directory or a parent directory\n * for the full licence terms.\n *\n * This is visible-source software and is not open-source software.\n */"/>
+    <property name="header" value="@LICENSE_HEADER@"/>
   </module>
   <module name="TreeWalker">
 

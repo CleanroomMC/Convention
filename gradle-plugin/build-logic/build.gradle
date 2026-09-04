@@ -41,6 +41,10 @@ def packedConventionFiles = [
         'cliff.toml': 'cliff.toml',
         'LICENSE': 'LICENSE',
         'HEADER': 'HEADER',
+        'licenses/free/LICENSE': 'licenses/free/LICENSE',
+        'licenses/free/HEADER': 'licenses/free/HEADER',
+        'licenses/open/LICENSE': 'licenses/open/LICENSE',
+        'licenses/open/HEADER': 'licenses/open/HEADER',
         '.editorconfig': 'editorconfig',
         '.gitattributes': 'gitattributes',
         '.gitignore': 'gitignore',
@@ -55,9 +59,11 @@ def packConventionFiles = tasks.register('packConventionFiles') {
         def destRoot = packedConventions.get().asFile.toPath()
         java.nio.file.Files.createDirectories(destRoot)
         packedConventionFiles.each { sourceName, destName ->
+            def destination = destRoot.resolve(destName)
+            java.nio.file.Files.createDirectories(destination.parent)
             java.nio.file.Files.copy(
                     conventionRoot.file(sourceName).asFile.toPath(),
-                    destRoot.resolve(destName),
+                    destination,
                     java.nio.file.StandardCopyOption.REPLACE_EXISTING
             )
         }

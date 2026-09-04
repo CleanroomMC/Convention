@@ -21,8 +21,6 @@ enum ConventionsFile {
     FORMAT_J("formatj.toml"),
     CHECKSTYLE("checkstyle.xml"),
     CLIFF("cliff.toml"),
-    LICENSE("LICENSE"),
-    HEADER("HEADER"),
     EDITOR_CONFIG(".editorconfig", "editorconfig"),
     GIT_ATTRIBUTES(".gitattributes", "gitattributes"),
     GIT_IGNORE(".gitignore", "gitignore", true);
@@ -56,7 +54,19 @@ enum ConventionsFile {
     }
 
     static String javaHeader() {
-        return toJavaBlockComment(HEADER.read());
+        return LicenseMode.VISIBLE.javaHeader();
+    }
+
+    static String checkstyle(LicenseMode license) {
+        String header = license.javaHeader()
+                .replace("&", "&amp;")
+                .replace("\"", "&quot;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\r\n", "\n")
+                .replace("\r", "\n")
+                .replace("\n", "\\n");
+        return CHECKSTYLE.read().replace("@LICENSE_HEADER@", header);
     }
 
     static String toJavaBlockComment(String text) {
@@ -78,13 +88,17 @@ enum ConventionsFile {
     }
 
     String read() {
+        return readResource(resourceName);
+    }
+
+    static String readResource(String resourceName) {
         try (InputStream stream = ConventionsFile.class.getResourceAsStream(RESOURCE_DIRECTORY + resourceName)) {
             if (stream == null) {
-                throw new GradleException("Convention file " + fileName + " is missing from the conventions plugin jar");
+                throw new GradleException("Convention resource " + resourceName + " is missing from the conventions plugin jar");
             }
             return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new UncheckedIOException("Cannot read convention file " + fileName + " from the conventions plugin jar", e);
+            throw new UncheckedIOException("Cannot read convention resource " + resourceName + " from the conventions plugin jar", e);
         }
     }
 
