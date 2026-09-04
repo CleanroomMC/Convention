@@ -58,14 +58,13 @@ A `repositories { }` block in `build.gradle` is allowed and only appends. It can
 
 ### Configuration
 
-These values are read before the project DSL, so they remain Gradle properties.
-`license` stays a bare property rather than `conventions.license` because the
-license mode is resolved while plugins apply, before the `conventions { }`
+These values are read before the project DSL, so they remain Gradle properties. The
+license mode in particular is resolved while plugins apply, before the `conventions { }`
 extension block below evaluates.
 
 | Property                        | Default    | Behaviour                                         |
 |---------------------------------|------------|---------------------------------------------------|
-| `license`                       | `visible`  | `free` (MIT), `open` (LGPLv3), or `visible`       |
+| `conventions.license`           | `visible`  | `free` (MIT), `open` (LGPLv3), or `visible`       |
 | `conventions.javaMajor`         | `25`       | Java toolchain language version                   |
 | `conventions.provisionJava`     | `false`    | Settings plugin applies Foojay toolchain resolver |
 | `conventions.modPublishing`     | `false`    | Applies the mod conventions                       |
@@ -98,12 +97,13 @@ The existing `conventions.repoUrl`, `conventions.junitVersion`, `conventions.moc
 Gradle reads `checkstyle.xml`, `formatj.toml`, `cliff.toml`, the selected `LICENSE`, and its `HEADER` from the plugin jar.
 Git, editors and git-cliff still need files on disk.
 `checkLicense` also reads `LICENSE` from the project directory or a parent directory, and every Java file has to start with `HEADER`.
-`extractConventions` writes them into the root project directory:
+`extractConventions` writes them into the root project directory. In a multi-project build every project applying the
+base or style conventions registers its own copy of the task, all writing the same root directory:
 
 - `LICENSE`, `HEADER`
 - `checkstyle.xml`, `formatj.toml`, `cliff.toml`
 - `.editorconfig`, `.gitattributes`
-- `.gitignore` (replaces the `# >>> cleanroom-conventions` region, keeps anything outside it)
+- `.gitignore` (replaces the `# >>> cleanroom-conventions` region, keeps anything outside it, and fails if the region is opened but never closed)
 
 It is a manual task. Hook it from a project-specific setup task if you want it on a known name:
 
@@ -139,13 +139,13 @@ Applied from `settings.gradle`.
 
 Set one license mode in `gradle.properties`:
 
-| `license` value | License                                      | SPDX identifier  |
-|-----------------|----------------------------------------------|------------------|
-| `free`          | MIT License                                  | `MIT`            |
-| `open`          | GNU Lesser General Public License version 3  | `LGPL-3.0-only`  |
-| `visible`       | CleanroomMC License Version 1.0              | Custom           |
+| `conventions.license` value | License                                      | SPDX identifier  |
+|-----------------------------|----------------------------------------------|------------------|
+| `free`                      | MIT License                                  | `MIT`            |
+| `open`                      | GNU Lesser General Public License version 3  | `LGPL-3.0-only`  |
+| `visible`                   | CleanroomMC License Version 1.0              | Custom           |
 
-`visible` is the default. The selected mode controls `checkLicense`, `extractConventions`, the Java header required by Checkstyle, and Maven POM license metadata. `checkLicense` is attached to `check` and accepts a matching `LICENSE` in the project directory or a parent directory.
+`visible` is the default. The selected mode controls `checkLicense`, `extractConventions`, the Java header required by Checkstyle, and Maven POM license metadata. The license conventions apply `lifecycle-base`, so `checkLicense` is attached to `check` even without the `java` plugin, and it accepts a matching `LICENSE` in the project directory or a parent directory.
 
 `conventions.beginFrom` optionally sets the first copyright year. The generated notice uses only the current year when it is unset and no existing notice is present. With an earlier starting year, it uses `StartingYear-CurrentYear`, for example `2021-2026`. When the year changes, `extractConventions` reads the starting year already stored in `HEADER` or `LICENSE`, preserves it, and advances the ending year. An explicit `beginFrom` value takes precedence. In `open` mode only `HEADER` carries the year: the LGPL license body is the unmodified FSF text and holds no project copyright line. Year preservation only matches `CleanroomMC contributors` notices; renaming the holder starts a new range from the current year.
 
@@ -159,6 +159,8 @@ The three run in a fixed order, since each one judges what the previous one wrot
 - ClearSkies > FormatJ > Checkstyle
 
 Checkstyle requires the selected license header from `HEADER` as a Java block comment at the top of every `.java` file.
+It is matched line by line as a regular expression, with the copyright year left as a pattern, so a new year never
+invalidates the header already written into every source file.
 
 The `checkstyle.xml` on disk holds an `@LICENSE_HEADER@` placeholder rather than a
 usable header. The plugin generates the resolved configuration at
