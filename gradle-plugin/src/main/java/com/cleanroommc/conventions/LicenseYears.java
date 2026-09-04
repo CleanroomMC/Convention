@@ -11,7 +11,7 @@
 package com.cleanroommc.conventions;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Year;
@@ -19,11 +19,16 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.gradle.api.GradleException;
 import org.gradle.api.Project;
+import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.provider.Provider;
+import org.gradle.api.provider.ProviderFactory;
+import org.gradle.api.provider.ValueSource;
+import org.gradle.api.provider.ValueSourceParameters;
 
 final class LicenseYears {
 
-    private static final String YEAR_TOKEN = "@YEAR@";
+    static final String YEAR_TOKEN = "@YEAR@";
+
     private static final Pattern COPYRIGHT = Pattern.compile("(?m)^(Copyright (?:\\(c\\)|©) )(\\d{4})(?:-(?:\\d{4}|present))?( CleanroomMC contributors)$");
 
     private final int begin;
@@ -42,8 +47,16 @@ final class LicenseYears {
 
     static Provider<LicenseYears> provider(Project project) {
         ConventionsExtension conventions = ConventionsExtension.register(project);
-        Provider<Integer> current = project.provider(() -> Year.now().getValue());
-        return current.zip(conventions.getBeginFrom(), (currentYear, begin) -> new LicenseYears(begin, currentYear));
+        return currentYear(project.getProviders()).zip(conventions.getBeginFrom(), (currentYear, begin) -> new LicenseYears(begin, currentYear));
+    }
+
+    static Provider<Integer> beginProvider(Project project) {
+        ProviderFactory providers = project.getProviders();
+        Provider<Integer> persisted = providers.of(
+                PersistedBeginYear.class,
+                source -> source.getParameters().getStartDirectory().set(project.getRootProject().getLayout().getProjectDirectory())
+        );
+        return persisted.orElse(currentYear(providers));
     }
 
     static LicenseYears of(int begin, int current) {
@@ -63,26 +76,65 @@ final class LicenseYears {
         return text.replace(YEAR_TOKEN, value());
     }
 
-    static int persistedBegin(Path directory, int current) {
-        Path cursor = directory;
-        while (cursor != null) {
-            for (String fileName : new String[] { "HEADER", "LICENSE" }) {
-                Path file = cursor.resolve(fileName);
-                if (!Files.isRegularFile(file)) {
-                    continue;
-                }
-                try {
-                    Matcher matcher = COPYRIGHT.matcher(Files.readString(file));
-                    if (matcher.find()) {
-                        return Integer.parseInt(matcher.group(2));
-                    }
-                } catch (IOException e) {
-                    throw new UncheckedIOException("Cannot read persisted copyright year from " + file, e);
-                }
-            }
-            cursor = cursor.getParent();
+    private static Provider<Integer> currentYear(ProviderFactory providers) {
+        return providers.of(CurrentYear.class, _ -> {});
+    }
+
+    /**
+     * The current year is external state, so it goes through a value source. Reading it directly would freeze the year
+     * into the configuration cache entry.
+     */
+    public abstract static class CurrentYear implements ValueSource<Integer, ValueSourceParameters.None> {
+
+        @Override
+        public Integer obtain() {
+            return Year.now().getValue();
         }
-        return current;
+
+    }
+
+    /**
+     * Walks parent directories for an existing copyright notice, so an established starting year survives a new year.
+     * Its depth is not known up front, so a value source carries the reads past the configuration cache.
+     */
+    public abstract static class PersistedBeginYear implements ValueSource<Integer, PersistedBeginYear.Parameters> {
+
+        public interface Parameters extends ValueSourceParameters {
+
+            DirectoryProperty getStartDirectory();
+
+        }
+
+        @Override
+        public Integer obtain() {
+            Path cursor = getParameters().getStartDirectory().getAsFile().get().toPath().toAbsolutePath().normalize();
+            while (cursor != null) {
+                for (String fileName : new String[] { "HEADER", "LICENSE" }) {
+                    Integer year = read(cursor.resolve(fileName));
+                    if (year != null) {
+                        return year;
+                    }
+                }
+                cursor = cursor.getParent();
+            }
+            return null;
+        }
+
+        // The walk reaches directories this build does not own, so an unreadable or non-UTF-8 candidate is not ours.
+        private static Integer read(Path file) {
+            if (!Files.isRegularFile(file)) {
+                return null;
+            }
+            String text;
+            try {
+                text = new String(Files.readAllBytes(file), StandardCharsets.UTF_8);
+            } catch (IOException e) {
+                return null;
+            }
+            Matcher matcher = COPYRIGHT.matcher(text);
+            return matcher.find() ? Integer.parseInt(matcher.group(2)) : null;
+        }
+
     }
 
 }
