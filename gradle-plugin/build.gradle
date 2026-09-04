@@ -37,31 +37,22 @@ tasks.named('checkLicense') {
     expected.set(providers.fileContents(conventionRoot.file('LICENSE')).asText)
 }
 
-def packedConventionFiles = [
-        'checkstyle.xml': 'checkstyle.xml',
-        'formatj.toml': 'formatj.toml',
-        'cliff.toml': 'cliff.toml',
-        'LICENSE': 'LICENSE',
-        'HEADER': 'HEADER',
-        'licenses/free/LICENSE': 'licenses/free/LICENSE',
-        'licenses/free/HEADER': 'licenses/free/HEADER',
-        'licenses/open/LICENSE': 'licenses/open/LICENSE',
-        'licenses/open/HEADER': 'licenses/open/HEADER',
-        '.editorconfig': 'editorconfig',
-        '.gitattributes': 'gitattributes',
-        '.gitignore': 'gitignore',
-]
+def packedManifestFile = layout.projectDirectory.file('packed-conventions.properties')
+def packedManifest = new Properties()
+packedManifestFile.asFile.withInputStream { packedManifest.load(it) }
 def packedConventions = layout.buildDirectory.dir('packed-conventions')
 def packConventionFiles = tasks.register('packConventionFiles') {
-    packedConventionFiles.each { sourceName, destName ->
+    inputs.file(packedManifestFile)
+    packedManifest.each { sourceName, destName ->
         inputs.file(conventionRoot.file(sourceName))
     }
     outputs.dir(packedConventions)
     doLast {
-        def destRoot = packedConventions.get().asFile.toPath()
-        java.nio.file.Files.createDirectories(destRoot)
-        packedConventionFiles.each { sourceName, destName ->
-            def destination = destRoot.resolve(destName)
+        def destRoot = packedConventions.get().asFile
+        destRoot.deleteDir()
+        java.nio.file.Files.createDirectories(destRoot.toPath())
+        packedManifest.each { sourceName, destName ->
+            def destination = destRoot.toPath().resolve(destName)
             java.nio.file.Files.createDirectories(destination.parent)
             java.nio.file.Files.copy(
                     conventionRoot.file(sourceName).asFile.toPath(),
