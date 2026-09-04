@@ -31,6 +31,12 @@ dependencies {
 }
 
 def conventionRoot = layout.projectDirectory.dir('..')
+
+// The root LICENSE is the packed template, so it intentionally retains @YEAR@.
+tasks.named('checkLicense') {
+    expected.set(providers.fileContents(conventionRoot.file('LICENSE')).asText)
+}
+
 def packedConventionFiles = [
         'checkstyle.xml': 'checkstyle.xml',
         'formatj.toml': 'formatj.toml',
