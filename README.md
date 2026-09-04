@@ -5,6 +5,8 @@ Contains the following conventional files.
 
 - `LICENSE`
 - `HEADER`
+- `licenses/free/LICENSE`, `licenses/free/HEADER` (MIT variant)
+- `licenses/open/LICENSE`, `licenses/open/HEADER` (LGPLv3 variant)
 - `checkstyle.xml`
 - `formatj.toml`
 - `cliff.toml`
@@ -50,13 +52,16 @@ plugins {
 }
 ```
 
-The aggregate plugin also applies [Token Envoy](https://github.com/CleanroomMC/GradleTokenEnvoy) 1.1.0. Configure its `tokenEnvoy` extension to replace `@{NAME}` tokens in compiled classes and resources without rewriting source files.
+The aggregate plugin also applies [Token Envoy](https://github.com/CleanroomMC/GradleTokenEnvoy) 1.1.0. Configure its `tokenEnvoy` extension to replace `@{NAME}` tokens in compiled classes and resources without rewriting source files. The Token Envoy version is pinned by each Conventions release and cannot be overridden per project. Its `@{NAME}` syntax is unrelated to the `@YEAR@` and `@LICENSE_HEADER@` placeholders used by license templating.
 
 A `repositories { }` block in `build.gradle` is allowed and only appends. It cannot replace Maven Central, the Plugin Portal, or Cleanroom Maven.
 
 ### Configuration
 
-These values are read before the project DSL, so they remain Gradle properties:
+These values are read before the project DSL, so they remain Gradle properties.
+`license` stays a bare property rather than `conventions.license` because the
+license mode is resolved while plugins apply, before the `conventions { }`
+extension block below evaluates.
 
 | Property                        | Default    | Behaviour                                         |
 |---------------------------------|------------|---------------------------------------------------|
@@ -142,7 +147,7 @@ Set one license mode in `gradle.properties`:
 
 `visible` is the default. The selected mode controls `checkLicense`, `extractConventions`, the Java header required by Checkstyle, and Maven POM license metadata. `checkLicense` is attached to `check` and accepts a matching `LICENSE` in the project directory or a parent directory.
 
-`conventions.beginFrom` optionally sets the first copyright year. The generated notice uses only the current year when it is unset and no existing notice is present. With an earlier starting year, it uses `StartingYear-CurrentYear`, for example `2021-2026`. When the year changes, `extractConventions` reads the starting year already stored in `HEADER` or `LICENSE`, preserves it, and advances the ending year. An explicit `beginFrom` value takes precedence.
+`conventions.beginFrom` optionally sets the first copyright year. The generated notice uses only the current year when it is unset and no existing notice is present. With an earlier starting year, it uses `StartingYear-CurrentYear`, for example `2021-2026`. When the year changes, `extractConventions` reads the starting year already stored in `HEADER` or `LICENSE`, preserves it, and advances the ending year. An explicit `beginFrom` value takes precedence. In `open` mode only `HEADER` carries the year: the LGPL license body is the unmodified FSF text and holds no project copyright line. Year preservation only matches `CleanroomMC contributors` notices; renaming the holder starts a new range from the current year.
 
 ### Style Conventions
 
@@ -154,6 +159,10 @@ The three run in a fixed order, since each one judges what the previous one wrot
 - ClearSkies > FormatJ > Checkstyle
 
 Checkstyle requires the selected license header from `HEADER` as a Java block comment at the top of every `.java` file.
+
+The `checkstyle.xml` on disk holds an `@LICENSE_HEADER@` placeholder rather than a
+usable header. The plugin generates the resolved configuration at
+`build/conventions/checkstyle.xml`; point IDE Checkstyle integrations at the generated file.
 
 Checkstyle warns when an imported `Nullable`, `NonNull`, `Nonnull`, `NotNull` or `CheckForNull` annotation does not come from `org.jspecify.annotations`. The advisory stays at import level so legacy or generated fully-qualified references do not block a build.
 
