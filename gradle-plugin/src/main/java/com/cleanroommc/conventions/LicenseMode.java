@@ -73,6 +73,10 @@ enum LicenseMode {
         return ConventionsFile.toJavaBlockComment(headerText(years));
     }
 
+    String javaHeaderPattern() {
+        return ConventionsFile.toJavaBlockCommentPattern(ConventionsFile.readResource(headerResource));
+    }
+
     String displayName() {
         return displayName;
     }

@@ -16,7 +16,6 @@ import org.gradle.api.plugins.PluginManager;
 import org.gradle.api.plugins.quality.Checkstyle;
 import org.gradle.api.plugins.quality.CheckstyleExtension;
 import org.gradle.api.plugins.quality.CheckstylePlugin;
-import org.gradle.api.provider.Provider;
 import org.gradle.api.tasks.TaskContainer;
 import org.gradle.api.tasks.TaskProvider;
 import zone.rong.clearskies.gradle.ClearSkiesPlugin;
@@ -34,7 +33,6 @@ public class ConventionsStylePlugin implements Plugin<Project> {
     public void apply(Project project) {
         ExtractConventionsTask.register(project);
         LicenseMode license = LicenseMode.from(project);
-        Provider<LicenseYears> years = LicenseYears.provider(project);
 
         PluginManager plugins = project.getPluginManager();
         TaskContainer tasks = project.getTasks();
@@ -54,8 +52,8 @@ public class ConventionsStylePlugin implements Plugin<Project> {
                 GenerateCheckstyleConfigTask.NAME,
                 GenerateCheckstyleConfigTask.class,
                 task -> {
-                    task.setDescription("Generates Checkstyle configuration for the selected license and copyright years.");
-                    task.getContents().convention(years.map(value -> ConventionsFile.checkstyle(license, value)));
+                    task.setDescription("Generates Checkstyle configuration for the selected license.");
+                    task.getContents().convention(ConventionsFile.checkstyle(license));
                     task.getOutputFile().convention(project.getLayout().getBuildDirectory().file("conventions/checkstyle.xml"));
                 }
         );

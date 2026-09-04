@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 import org.gradle.api.GradleException;
 
 enum ConventionsFile {
@@ -26,6 +27,8 @@ enum ConventionsFile {
     GIT_IGNORE(".gitignore", "gitignore", true);
 
     private static final String RESOURCE_DIRECTORY = "/resources/";
+    private static final Pattern REGEX_METACHARACTER = Pattern.compile("[\\\\.\\[\\]{}()*+?^$|]");
+    private static final String YEAR_PATTERN = "\\d{4}(?:-(?:\\d{4}|present))?";
 
     private final String fileName;
     private final String resourceName;
@@ -53,14 +56,12 @@ enum ConventionsFile {
         return mergeMarkedRegion;
     }
 
-    static String checkstyle(LicenseMode license, LicenseYears years) {
-        String header = license.javaHeader(years)
+    static String checkstyle(LicenseMode license) {
+        String header = license.javaHeaderPattern()
                 .replace("&", "&amp;")
                 .replace("\"", "&quot;")
                 .replace("<", "&lt;")
                 .replace(">", "&gt;")
-                .replace("\r\n", "\n")
-                .replace("\r", "\n")
                 .replace("\n", "\\n");
         return CHECKSTYLE.read().replace("@LICENSE_HEADER@", header);
     }
@@ -81,6 +82,22 @@ enum ConventionsFile {
             }
         }
         return comment.append(" */").toString();
+    }
+
+    /**
+     * Renders the header as one Checkstyle {@code RegexpHeader} line pattern per line. The copyright year stays a
+     * pattern, so a new year never invalidates the header already written into every source file.
+     */
+    static String toJavaBlockCommentPattern(String template) {
+        StringBuilder pattern = new StringBuilder();
+        for (String line : toJavaBlockComment(template).split("\n", -1)) {
+            if (!pattern.isEmpty()) {
+                pattern.append('\n');
+            }
+            String quoted = REGEX_METACHARACTER.matcher(line).replaceAll("\\\\$0");
+            pattern.append('^').append(quoted.replace(LicenseYears.YEAR_TOKEN, YEAR_PATTERN)).append('$');
+        }
+        return pattern.toString();
     }
 
     String read() {

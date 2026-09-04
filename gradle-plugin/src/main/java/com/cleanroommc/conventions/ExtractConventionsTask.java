@@ -52,7 +52,7 @@ public abstract class ExtractConventionsTask extends DefaultTask {
             task.getDestinationDirectory().convention(project.getRootProject().getLayout().getProjectDirectory());
             for (ConventionsFile file : ConventionsFile.values()) {
                 if (file == ConventionsFile.CHECKSTYLE) {
-                    task.getContents().put(file.fileName(), years.map(value -> ConventionsFile.checkstyle(license, value)));
+                    task.getContents().put(file.fileName(), ConventionsFile.checkstyle(license));
                 } else {
                     task.getContents().put(file.fileName(), file.read());
                 }

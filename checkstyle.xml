@@ -24,8 +24,8 @@
   <module name="LineEnding">
     <property name="lineEnding" value="lf"/>
   </module>
-  <!-- Wrapped HEADER. The plugin test fails if this drifts from the HEADER file. -->
-  <module name="Header">
+  <!-- Wrapped HEADER, one regex per line so the copyright year never forces a source rewrite. -->
+  <module name="RegexpHeader">
     <property name="header" value="@LICENSE_HEADER@"/>
   </module>
   <module name="TreeWalker">
